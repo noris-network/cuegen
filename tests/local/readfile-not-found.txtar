@@ -1,0 +1,15 @@
+### readfile-not-found.txtar
+
+# @readfile(no-such-file)
+! exec cuegen chart
+stderr 'file ".+" not found inside working directory'
+
+-- chart/cuegen.yaml --
+objectsPath: objects
+
+-- chart/a.cue --
+package kube
+
+objects: [{
+    b: string @readfile(no-such-file)
+}]

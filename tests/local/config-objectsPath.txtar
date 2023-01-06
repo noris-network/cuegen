@@ -1,0 +1,27 @@
+### config-objectsPath.txtar
+
+# config: no objectsPath
+! exec cuegen chart/cuegen1.yaml
+stderr 'objectsPath is not set'
+
+# config: objectsPath ok
+exec cuegen chart/cuegen2.yaml
+stdout 'a: b'
+
+# config: other objectsPath
+exec cuegen chart/cuegen3.yaml
+stdout 'c: d'
+
+-- chart/cuegen1.yaml --
+
+-- chart/cuegen2.yaml --
+objectsPath: objects
+
+-- chart/cuegen3.yaml --
+objectsPath: otherPath
+
+-- chart/a.cue --
+package kube
+
+objects:   [{ a: "b" }]
+otherPath: [{ c: "d" }]

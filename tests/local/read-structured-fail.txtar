@@ -1,0 +1,35 @@
+### read-structured-fail.txtar
+
+# @read(yaml)
+! exec cuegen chart
+stderr 'cannot unmarshal'
+
+# @read(json)
+exec sed -i s/yaml/json/ chart/a.cue
+! exec cuegen chart
+stderr 'invalid character ''='' looking for beginning of value'
+
+# @read(env)
+exec sed -i s/json/env/ chart/a.cue
+! exec cuegen chart
+stderr 'Can''t separate key from value'
+
+
+-- chart/cuegen.yaml --
+objectsPath: objects
+
+-- chart/a.cue --
+package kube
+
+objects: [{
+  a: {} @read(data.yaml)
+}]
+
+-- chart/data.yaml --
+a=b
+
+-- chart/data.json --
+=
+
+-- chart/data.env --
+a

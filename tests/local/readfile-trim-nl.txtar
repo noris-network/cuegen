@@ -1,0 +1,43 @@
+### readfile-trim-nl.txtar
+
+# @readfile(=trim)
+exec cuegen chart1
+cmp stdout expect1
+
+# @readfile(=nl)
+exec sh -c 'echo -n FILE1 > chart2/file1'
+exec sh -c 'echo -n FILE2 > chart2/file2'
+exec sh -c 'echo -n FILE3 > chart2/file3'
+exec cuegen chart2
+cmp stdout expect2
+
+-- chart1/cuegen.yaml --
+objectsPath: objects
+
+-- chart1/a.cue --
+package kube
+
+objects: [{
+    a: string @readfile(file=trim,file=trim,file=trim)
+}]
+
+-- chart2/cuegen.yaml --
+objectsPath: objects
+
+-- chart2/a.cue --
+package kube
+
+objects: [{
+    b: string @readfile(file1=nl,file2=nl,file3=nl)
+}]
+
+-- chart1/file --
+FILE1
+
+-- expect1 --
+a: FILE1FILE1FILE1
+-- expect2 --
+b: |
+  FILE1
+  FILE2
+  FILE3

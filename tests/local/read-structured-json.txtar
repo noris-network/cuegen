@@ -1,0 +1,25 @@
+### read-structured-json.txtar
+
+# @read(json)
+exec cuegen chart
+cmp stdout expect
+
+-- chart/cuegen.yaml --
+objectsPath: objects
+
+-- chart/a.cue --
+package kube
+
+objects: [{
+	dir: {} @read(data.json)
+}]
+
+-- chart/data.json --
+{"g":{"k":{"l": "data-l","m": "data-m"}}}
+
+-- expect --
+dir:
+  g:
+    k:
+      l: data-l
+      m: data-m

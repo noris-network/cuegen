@@ -1,0 +1,52 @@
+### read-structured-all.txtar
+
+# @read(dir,env,yaml,json)
+exec cuegen chart
+cmp stdout expect
+
+-- chart/cuegen.yaml --
+objectsPath: objects
+
+-- chart/a.cue --
+package kube
+
+objects: [{
+	dir: {} @read(dir, data.env, data.yaml, data.json)
+}]
+
+-- chart/dir/a --
+A
+
+-- chart/dir/b --
+B
+
+-- chart/data.env --
+c=data-c
+d=data-d
+
+-- chart/data.yaml --
+g:
+  h:
+      i: data-i
+      j: data-j
+
+-- chart/data.json --
+{"g":{"k":{"l": "data-l","m": "data-m"}}}
+
+-- expect --
+dir:
+  a: |+
+    A
+
+  b: |+
+    B
+
+  c: data-c
+  d: data-d
+  g:
+    h:
+      i: data-i
+      j: data-j
+    k:
+      l: data-l
+      m: data-m

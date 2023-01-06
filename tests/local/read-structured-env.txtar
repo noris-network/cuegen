@@ -1,0 +1,24 @@
+### read-structured-env.txtar
+
+# @read(env)
+exec cuegen chart
+cmp stdout expect
+
+-- chart/cuegen.yaml --
+objectsPath: objects
+
+-- chart/a.cue --
+package kube
+
+objects: [{
+	dir: {} @read(data.env)
+}]
+
+-- chart/data.env --
+c=data-c
+d=data-d
+
+-- expect --
+dir:
+  c: data-c
+  d: data-d

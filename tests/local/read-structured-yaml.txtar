@@ -1,0 +1,28 @@
+### read-structured-yaml.txtar
+
+# @read(yaml)
+exec cuegen chart
+cmp stdout expect
+
+-- chart/cuegen.yaml --
+objectsPath: objects
+
+-- chart/a.cue --
+package kube
+
+objects: [{
+	dir: {} @read(data.yaml)
+}]
+
+-- chart/data.yaml --
+g:
+  h:
+      i: data-i
+      j: data-j
+
+-- expect --
+dir:
+  g:
+    h:
+      i: data-i
+      j: data-j

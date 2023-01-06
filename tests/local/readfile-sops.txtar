@@ -1,0 +1,79 @@
+### readfile-sops.txtar
+
+# readfile: sops encrypted, key available
+env SOPS_AGE_KEY_FILE=$WORK/keys.txt
+exec cuegen chart1
+stdout 'secret: some secret data'
+
+# readfile: sops encrypted, key not available
+exec cuegen chart2
+stderr 'looks like sops encrypted, but decrypt failed'
+
+-- chart1/cuegen.yaml --
+objectsPath: objects
+
+-- chart1/a.cue --
+package kube
+
+objects: [{
+    secret: string @readfile(secret.txt=trim)
+}]
+
+-- chart2/cuegen.yaml --
+objectsPath: objects
+
+-- chart2/a.cue --
+package kube
+
+objects: [{
+    secret: string @readfile(secret.txt=trim)
+}]
+
+-- keys.txt --
+# * * *  this key is just for testing, never use it for anything else  * * *
+AGE-SECRET-KEY-14QUHLE5A6UNSKNYXLF5ZA26P3NCFX8P68JQ066T7VJ6JW5G8FHWQN4HAUQ
+# * * *  this key is just for testing, never use it for anything else  * * *
+
+-- chart1/secret.txt --
+{
+	"data": "ENC[AES256_GCM,data:NDgRD9FS0p0M5WKnhUFtv0U=,iv:PcUAVThKzEz0FmgG610GoHPMMuG0nzIOiTfrfsf9AK4=,tag:NTVqjyfshEBzctAMVyZowg==,type:str]",
+	"sops": {
+		"kms": null,
+		"gcp_kms": null,
+		"azure_kv": null,
+		"hc_vault": null,
+		"age": [
+			{
+				"recipient": "age13643rcqprsmy33ff4rgj2strpyhxgzu3x6lvyrzvhsqqjvmk9d3qe59qn8",
+				"enc": "-----BEGIN AGE ENCRYPTED FILE-----\nYWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBuMm1wR0hTUHBYZlVjczNU\nRWxxMFhpbTlZQVB5aFZBYzd0VVE4N0JmWnlZCitFdkxHazhXTDFkbUFyNHp0bStI\nVGx3dC9Yc0hrS3lhakRRdUg3TzA4TXMKLS0tIEwrWWZzbFEydHVUc3RVS3NKQ3lL\nSC8rWm5XYTFLUXdURXJDL08yN00vVE0K1oqiXcBR7tZh342LBReJYrVTxekJ/sq2\nQTE4oweuyjtOp55wSUW8cSiIw7uABHj93zE0OTn9EEv/5aDYYN53AA==\n-----END AGE ENCRYPTED FILE-----\n"
+			}
+		],
+		"lastmodified": "2023-01-06T13:55:03Z",
+		"mac": "ENC[AES256_GCM,data:jbj9mfdj0/cBrtZr8biapIGh7qGWdgpVs6JkXwN62Wa2VEtI00CZtJpXazVyEkpw7o1+Q6eOpE+rfLPm18IbE5blyrXFKWY7reptkGdVDmI38mBvzRsirYBdTWM27ufJElFaYdLQVyQ+d1vGHdl3NxQAF5DLg9lGlPnF6jlHq58=,iv:wJvOUhC/7b1ZTeneXKcYWSFHNdjpFEqVd6zwv7JfLko=,tag:2AFEkXUA1fMPt7OelOO8Eg==,type:str]",
+		"pgp": null,
+		"unencrypted_suffix": "_unencrypted",
+		"version": "3.7.3"
+	}
+}
+
+-- chart2/secret.txt --
+{
+	"data": "ENC[AES256_GCM,data:mevUxI8jotaLzDKJPI6rky8=,iv:ju+mLMGzjexqSPzmiqFzJ7+Gn/GTFu+Q7pqGjRcIoc4=,tag:mxKF2mqmLAEhGVCgtUm/MQ==,type:str]",
+	"sops": {
+		"kms": null,
+		"gcp_kms": null,
+		"azure_kv": null,
+		"hc_vault": null,
+		"age": [
+			{
+				"recipient": "age1jy9lvxt4zf84v7r70j6yfjv5d09ezrzfknl754q800v7kt6s7cksnmtffu",
+				"enc": "-----BEGIN AGE ENCRYPTED FILE-----\nYWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBablRkdExtZjB3U2wwK0ww\nS3lnTEJyemtBZTNrTWZDTElSdHZrNnh3anprCm9tTzVnVEZROU03eHArbXA0TGdu\nUmdORGpLYkNtdE53OUc0SldyajkwWHMKLS0tIFBYTUpqWEpISWI5VFVuUGc0N1pu\nQ0ZpY0I1VllzMm9Hd2V3WUVmdzFoT2sKWJ/yjwZSg1KNwPPbJ4Ai9GBILHtOfYZz\nfT1YCdk/Kui0uhYQmdT4JnneM8llH+eo3epktAOxtP89zBiamaDCfw==\n-----END AGE ENCRYPTED FILE-----\n"
+			}
+		],
+		"lastmodified": "2023-01-06T14:05:27Z",
+		"mac": "ENC[AES256_GCM,data:Zz9M8RnFEPK0KLTBvQhFVbh0x8ojIKXtTLubp4WaeneLurZdyZmNtH2DT6ovGUPaowYYTN+9MlZsQMG5ezn6Lg01hpMW4cL8hUHVY2w5bP77IbjenHW6e/MwarYZhSnvuraI3KktksYG+sTpqKXKuhuHhYpo3DoP6wnB92+Hu+s=,iv:urrmqOEIlg0blOqRDYE0V123F6ioU8Ta1nOTAg1CEJ8=,tag:lCA0NKpiBA5UuutBOzR3tg==,type:str]",
+		"pgp": null,
+		"unencrypted_suffix": "_unencrypted",
+		"version": "3.7.3"
+	}
+}

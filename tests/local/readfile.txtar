@@ -1,0 +1,49 @@
+### readfile.txtar
+
+# @readfile(file)
+exec cuegen chart1
+cmp stdout expect1
+
+# @readfile(file1,file2)
+exec cuegen chart2
+cmp stdout expect2
+
+-- chart1/cuegen.yaml --
+objectsPath: objects
+
+-- chart1/a.cue --
+package kube
+
+objects: [{
+    a: string @readfile(file1)
+}]
+
+-- chart2/cuegen.yaml --
+objectsPath: objects
+
+-- chart2/a.cue --
+package kube
+
+objects: [{
+    b: string @readfile(file1,file2)
+}]
+
+-- chart1/file1 --
+FILE-A
+
+-- chart2/file1 --
+FILE-B1
+
+-- chart2/file2 --
+FILE-B2
+
+-- expect1 --
+a: |+
+  FILE-A
+
+-- expect2 --
+b: |+
+  FILE-B1
+
+  FILE-B2
+

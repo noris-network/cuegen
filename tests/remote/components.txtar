@@ -1,0 +1,20 @@
+### components.txtar
+
+# components: remote
+exec cuegen chart
+cmp stdout expect
+
+-- chart/cuegen.yaml --
+objectsPath: objects
+components:
+  - https://github.com/nxcc/cuegen-test-chart-one
+
+-- chart/a.cue --
+package kube
+
+objects: [ configMap.oneconf ]
+
+-- expect --
+data:
+  hostname: one.example.com
+  index: <h1>Welcome to One</h1>

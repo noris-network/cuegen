@@ -1,0 +1,60 @@
+### components-mixed.txtar
+
+# components
+exec cuegen chart
+cmp stdout expect
+
+-- chart/cuegen.yaml --
+objectsPath: objects
+components:
+  - https://github.com/nxcc/cuegen-test-chart-one
+  - ../comp1
+  - ../comp2
+
+-- chart/a.cue --
+package kube
+
+configMap: [ID=_]: { name: ID }
+objects: [ for v in configMap {v} ]
+
+configMap: cm0: {
+    data: string @readfile(file=trim)
+}
+
+-- comp1/a.cue --
+package kube
+
+configMap: cm1: {
+    data: string @readfile(file=trim)
+}
+
+-- comp2/a.cue --
+package kube
+
+configMap: cm2: {
+    data: string @readfile(file=trim)
+}
+
+-- chart/file --
+FILE
+
+-- comp1/file --
+COMP1
+
+-- comp2/file --
+COMP2
+
+-- expect --
+data: FILE
+name: cm0
+---
+data: COMP1
+name: cm1
+---
+data:
+  hostname: one.example.com
+  index: <h1>Welcome to One</h1>
+name: oneconf
+---
+data: COMP2
+name: cm2
