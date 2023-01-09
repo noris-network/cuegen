@@ -1,0 +1,20 @@
+### components-readfile-missing.txtar
+
+# components: missing file for readfile
+! exec cuegen chart
+stderr 'readFile: "\.\./comp": "file": open file: no such file or directory'
+
+-- chart/cuegen.yaml --
+objectsPath: objects
+components:
+  - ../comp
+
+-- comp/a.cue --
+package kube
+
+objectSet: set1: {
+    data: string @readfile(file)
+}
+
+-- chart/a.cue --
+package kube

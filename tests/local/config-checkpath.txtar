@@ -1,0 +1,32 @@
+### config-checkpath.txtar
+
+# config: checkpath
+! exec cuegen chart/cuegen1.yaml
+stderr '"values1.foo" is not set'
+stderr 'encountered non-concretene values'
+
+# config: checkpath & checkpaths
+! exec cuegen chart/cuegen2.yaml
+stderr '"values1.foo" is not set'
+stderr '"values2.bar" is not set'
+stderr '"values3.baz" is not set'
+stderr 'encountered non-concretene values'
+
+-- chart/cuegen1.yaml --
+objectsPath: objects
+checkPath: values1
+
+-- chart/cuegen2.yaml --
+objectsPath: objects
+checkPath: values1
+checkPaths:
+  - values2
+  - values3
+
+-- chart/a.cue --
+package kube
+
+values1: foo: string
+values2: bar: string
+values3: baz: string
+objects:[]

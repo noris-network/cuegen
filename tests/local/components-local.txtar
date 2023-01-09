@@ -1,0 +1,59 @@
+### components-local.txtar
+
+# components: rel. path
+exec cuegen chart/cuegen1.yaml
+stdout 'data: FILE\nname: set0'
+stdout 'data: COMP1\nname: set1'
+stdout 'data: COMP2\nname: set2'
+
+# components: abs. path
+exec sh -c 'echo "    - $WORK/comp2" >> chart/cuegen2.yaml'
+exec cat chart/cuegen2.yaml
+exec cuegen chart/cuegen2.yaml
+stdout 'data: FILE\nname: set0'
+stdout 'data: COMP1\nname: set1'
+stdout 'data: COMP2\nname: set2'
+
+-- chart/cuegen1.yaml --
+#debug: true
+objectsPath: objects
+components:
+    - ../comp1
+    - ../comp2
+
+-- chart/cuegen2.yaml --
+#debug: true
+objectsPath: objects
+components:
+    - ../comp1
+
+-- chart/a.cue --
+package kube
+objectSet: [ID=_]: { name: ID }
+objects: [ for v in objectSet {v} ]
+objectSet: set0: {
+    data: string @readfile(file=trim)
+}
+
+-- comp1/a.cue --
+package kube
+
+objectSet: set1: {
+    data: string @readfile(file1=trim)
+}
+
+-- comp2/a.cue --
+package kube
+
+objectSet: set2: {
+    data: string @readfile(file2=trim)
+}
+
+-- chart/file --
+FILE
+
+-- comp1/file1 --
+COMP1
+
+-- comp2/file2 --
+COMP2

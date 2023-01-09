@@ -1,0 +1,13 @@
+### components-missing.txtar
+
+# components: missing component
+! exec cuegen chart
+stderr 'could not open component "\.\./comp"'
+
+-- chart/cuegen.yaml --
+objectsPath: objects
+components:
+  - ../comp
+
+-- chart/a.cue --
+package kube

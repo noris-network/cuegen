@@ -1,0 +1,24 @@
+### config-debug.txtar
+
+# config: debug=false
+exec cuegen chart/cuegen1.yaml
+! stderr '.'
+! stdout '.'
+
+# config: debug=true
+exec cuegen chart/cuegen2.yaml
+stderr '.'
+! stdout '.'
+
+-- chart/cuegen1.yaml --
+objectsPath: objects
+debug: false
+
+-- chart/cuegen2.yaml --
+objectsPath: objects
+debug: true
+
+-- chart/a.cue --
+package kube
+
+objects: []
