@@ -1,0 +1,33 @@
+name: Release Cuegen
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  publishGitRelease:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions/setup-go@v3
+        with:
+          go-version: ">=1.20.0-rc.2"
+          check-latest: true
+
+      - name: Get Version
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF##*/}" >> "${GITHUB_OUTPUT}"
+
+      - name: Run Tests
+        run: go test ./tests
+
+      - name: Run Goreleaser
+        uses: goreleaser/goreleaser-action@v4
+        with:
+          version: latest
+          args: release --config=.goreleaser.yaml --rm-dist
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.get_version.outputs.VERSION }}

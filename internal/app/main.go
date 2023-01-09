@@ -32,6 +32,8 @@ var runningAsKustomizePlugin = os.Getenv("KUSTOMIZE_PLUGIN_CONFIG_ROOT") != ""
 
 func Main() int {
 
+	log.SetFlags(0)
+
 	// check args
 	if len(os.Args) == 2 && os.Args[1] == "version" {
 		log.Printf("cuegen %v", build)
@@ -50,7 +52,6 @@ func Main() int {
 
 	// logging
 	log.SetPrefix("# cuegen: ")
-	log.SetFlags(0)
 	if config.Debug {
 		log.Printf("build: %v", build)
 		log.Printf("---")
