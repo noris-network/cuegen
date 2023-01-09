@@ -37,12 +37,13 @@ type Config struct {
 	Metadata   struct {
 		Name string `yaml:"name"`
 	} `yaml:"metadata"`
-	Components  []string `yaml:"components"`
-	Debug       bool     `yaml:"debug"`
-	ObjectsPath string   `yaml:"objectsPath"`
-	ChartRoot   string
-	CheckPath   string   `yaml:"checkPath"`
-	CheckPaths  []string `yaml:"checkPaths"`
+	Components     []string `yaml:"components"`
+	Debug          bool     `yaml:"debug"`
+	ObjectsPath    string   `yaml:"objectsPath"`
+	SecretDataPath string   `yaml:"secretDataPath"`
+	ChartRoot      string
+	CheckPath      string   `yaml:"checkPath"`
+	CheckPaths     []string `yaml:"checkPaths"`
 }
 
 type Component struct {
@@ -55,20 +56,22 @@ type Component struct {
 type Components map[string]Component
 
 type Cuegen struct {
-	Components  Components
-	Debug       bool
-	ObjectsPath string
-	CheckPaths  []string
-	ChartRoot   string
+	Components     Components
+	Debug          bool
+	ObjectsPath    string
+	SecretDataPath string
+	CheckPaths     []string
+	ChartRoot      string
 }
 
 // Exec initializes the Cuegen struct and executes cuegen
 func Exec(config Config) error {
 
 	cg := Cuegen{
-		Debug:       config.Debug,
-		ObjectsPath: config.ObjectsPath,
-		ChartRoot:   config.ChartRoot,
+		Debug:          config.Debug,
+		ObjectsPath:    config.ObjectsPath,
+		ChartRoot:      config.ChartRoot,
+		SecretDataPath: config.SecretDataPath,
 	}
 
 	if config.CheckPath != "" {

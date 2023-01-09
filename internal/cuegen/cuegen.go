@@ -44,7 +44,7 @@ type valueAttributes struct {
 
 type pathValueAttributes map[string]valueAttributes
 
-var cuegenAttrs = []string{"read", "readfile"}
+var cuegenAttrs = []string{"read", "readfile", "readmap"}
 
 func (cg Cuegen) Exec() error {
 
@@ -280,6 +280,8 @@ func (cg Cuegen) processAttributes(value cue.Value, attrs pathValueAttributes) (
 			switch attr.Name() {
 			case "readfile":
 				value, err = cg.attrReadFile(value, cuePath, attr, selectedFs)
+			case "readmap":
+				value, err = cg.attrReadMap(value, cuePath, attr, selectedFs)
 			case "read":
 				value, err = cg.attrRead(value, cuePath, attr, selectedFs)
 			default:
@@ -335,11 +337,50 @@ func (cg Cuegen) attrRead(value cue.Value, cuePath string, attr cue.Attribute, c
 	return value, nil
 }
 
+// attrReadMap reads all paths found in an attribute and fills the data as
+// map[string]any into the given cue.Value. Structured data (JSON,YAML) is only
+// allowed one level deep. All values matching the secretDataPath are stored as
+// []byte, everything else as string. The updated cue.Value is then returned.
+func (cg Cuegen) attrReadMap(value cue.Value, cuePath string, attr cue.Attribute, component Component) (cue.Value, error) {
+	for i := 0; i < attr.NumArgs(); i++ {
+		item, suffix := attr.Arg(i)
+		data, err := cg.readPath(component, item)
+		if err != nil {
+			return value, fmt.Errorf("attrRead: %v", err)
+		}
+		secretPath := strings.Split(cg.SecretDataPath, ".")
+		asBytes := true
+		if suffix != "bytes" {
+			pathItem := strings.Split(cuePath, ".")
+			for n, key := range secretPath {
+				if key != "*" && key != pathItem[n] {
+					asBytes = false
+					break
+				}
+			}
+		}
+		for k, v := range data {
+			pathItems := cue.ParsePath(fmt.Sprintf("%v.%q", cuePath, k))
+			switch stringValue := v.(type) {
+			case string:
+				if asBytes {
+					value = value.FillPath(pathItems, []byte(stringValue))
+				} else {
+					value = value.FillPath(pathItems, stringValue)
+				}
+			default:
+				return value, fmt.Errorf("value of type %T not allowed with readmap", v)
+			}
+		}
+	}
+	return value, nil
+}
+
 // readPath checks the given path, when it points to a directory all regular files
 // in that path are red into a filename/contents key-value map. If it points to a
 // single file, that is expected to contain some structured data (yaml,json,env).
 // Data is returned as map[string]any{}.
-func (cg Cuegen) readPath(component Component, path string) (any, error) {
+func (cg Cuegen) readPath(component Component, path string) (map[string]any, error) {
 	fileinfo, err := fs.Stat(component.Filesystem, path)
 	if err != nil {
 		return nil, fmt.Errorf("readPath: %v", err)
@@ -349,18 +390,18 @@ func (cg Cuegen) readPath(component Component, path string) (any, error) {
 		if err != nil {
 			return nil, fmt.Errorf("readPath: %v", err)
 		}
-		values := map[string]any{}
+		data := map[string]any{}
 		for _, entry := range entries {
 			if !entry.Type().IsRegular() {
 				continue
 			}
-			data, err := cg.readFile(component, filepath.Join(path, entry.Name()))
+			stringData, err := cg.readFile(component, filepath.Join(path, entry.Name()))
 			if err != nil {
 				return nil, fmt.Errorf("readPath: %v", err)
 			}
-			values[entry.Name()] = data
+			data[entry.Name()] = stringData
 		}
-		return values, nil
+		return data, nil
 	}
 	if fileinfo.Mode().IsRegular() {
 		return cg.readStructFile(component, path)
@@ -370,7 +411,7 @@ func (cg Cuegen) readPath(component Component, path string) (any, error) {
 
 // readStructFile reads a given file and tries to unmarshal the contents into
 // a map[string]any{} which is returned.
-func (cg Cuegen) readStructFile(component Component, file string) (any, error) {
+func (cg Cuegen) readStructFile(component Component, file string) (map[string]any, error) {
 	contents, err := cg.readFile(component, file)
 	if err != nil {
 		return nil, fmt.Errorf("readStructFile: %q: %v", file, err)
@@ -381,7 +422,7 @@ func (cg Cuegen) readStructFile(component Component, file string) (any, error) {
 	case ".env":
 		env, err := godotenv.Unmarshal(contents)
 		if err != nil {
-			return cue.Value{}, fmt.Errorf("readStructFile: %q: %v", file, err)
+			return data, fmt.Errorf("readStructFile: %q: %v", file, err)
 		}
 		for k, v := range env {
 			data[k] = v
@@ -391,12 +432,12 @@ func (cg Cuegen) readStructFile(component Component, file string) (any, error) {
 	case ".yaml":
 		err = yaml.Unmarshal([]byte(contents), &data)
 		if err != nil {
-			return cue.Value{}, fmt.Errorf("readStructFile: %q: %v", file, err)
+			return data, fmt.Errorf("readStructFile: %q: %v", file, err)
 		}
 	case ".json":
 		err = json.Unmarshal([]byte(contents), &data)
 		if err != nil {
-			return cue.Value{}, fmt.Errorf("readStructFile: %q: %v", file, err)
+			return data, fmt.Errorf("readStructFile: %q: %v", file, err)
 		}
 	}
 	return data, nil

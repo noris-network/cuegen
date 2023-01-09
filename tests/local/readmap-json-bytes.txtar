@@ -1,0 +1,21 @@
+### readmap-json-bytes.txtar
+
+# @readmap(json)
+exec cuegen chart
+stdout 'a: ZGF0YS1h'
+stdout 'b: ZGF0YS1i'
+
+-- chart/cuegen.yaml --
+objectsPath: objects
+
+-- chart/a.cue --
+package kube
+
+configMap: test: {
+	data: {} @readmap(data.json=bytes)
+}
+
+objects: [ for v in configMap {v} ]
+
+-- chart/data.json --
+{"a":"data-a","b":"data-b"}

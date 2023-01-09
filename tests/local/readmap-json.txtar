@@ -1,0 +1,30 @@
+### readmap-json.txtar
+
+cp chart1/cuegen.yaml chart1/a.cue chart2
+
+# @readmap(json)
+exec cuegen chart1
+stdout 'a: data-a'
+stdout 'b: data-b'
+
+# @readmap(json) (fail)
+! exec cuegen chart2
+stderr 'value of type .* not allowed with readmap'
+
+-- chart1/cuegen.yaml --
+objectsPath: objects
+
+-- chart1/a.cue --
+package kube
+
+configMap: test: {
+	data: {} @readmap(data.json)
+}
+
+objects: [ for v in configMap {v} ]
+
+-- chart1/data.json --
+{"a":"data-a","b":"data-b"}
+
+-- chart2/data.json --
+{"a":"data-a","b":"data-b","c":{"d":"data-d"}}

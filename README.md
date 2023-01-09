@@ -37,6 +37,10 @@ A configuration file (preferred name: `cuegen.yaml`) is required to run `cuegen`
       - values
       - morevalues
 
+    # (optional) values in this path are loaded as []byte. This will
+    # automatically base64 encode them when dumped to YAML
+    secretDataPath: secret.*.data
+
     # (optional, default: false) print some info useful for debugging
     debug: false
 
@@ -87,6 +91,19 @@ Load `my.crt` and `chain.crt` concatenated into `Certificate`. A `\n` is ensured
 to be placed after `my.crt`:
 
     Certificate: string @readfile(my.crt=nl, chain.crt)
+
+
+### Attribute "@readmap"
+Attribute `@readmap` loads contents of given file(s) into a CUE value as key/value
+data. When the cue path matches `secretDataPath`, values are inserted as []byte.
+This will automatically base64 encode them when dumped to YAML. This is useful
+for Secrets. This can also be forced by an `=bytes` suffix.
+
+Load values from `data.json` as []bytes:
+
+    secret: foo: {
+      data: {} @readmap(data.json=bytes)
+    }
 
 
 ### Attribute "@read"
