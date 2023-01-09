@@ -5,7 +5,7 @@ go 1.20
 require (
 	cuelang.org/go v0.5.0-beta.2
 	github.com/forensicanalysis/gitfs v0.2.1
-	github.com/go-git/go-git/v5 v5.5.1
+	github.com/go-git/go-git/v5 v5.5.2
 	github.com/joho/godotenv v1.4.0
 	github.com/rogpeppe/go-internal v1.9.0
 	go.mozilla.org/sops/v3 v3.7.3
@@ -42,7 +42,7 @@ require (
 	github.com/emirpasic/gods v1.18.1 // indirect
 	github.com/fatih/color v1.13.0 // indirect
 	github.com/go-git/gcfg v1.5.0 // indirect
-	github.com/go-git/go-billy/v5 v5.3.1 // indirect
+	github.com/go-git/go-billy/v5 v5.4.0 // indirect
 	github.com/golang-jwt/jwt/v4 v4.3.0 // indirect
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
