@@ -348,12 +348,15 @@ func (cg Cuegen) attrReadMap(value cue.Value, cuePath string, attr cue.Attribute
 		if err != nil {
 			return value, fmt.Errorf("attrRead: %v", err)
 		}
-		secretPath := strings.Split(cg.SecretDataPath, ".")
+		secretPathItems := strings.Split(cg.SecretDataPath, ".")
+		pathItems := strings.Split(cuePath, ".")
 		asBytes := true
-		if suffix != "bytes" {
-			pathItem := strings.Split(cuePath, ".")
-			for n, key := range secretPath {
-				if key != "*" && key != pathItem[n] {
+		if len(secretPathItems) > len(pathItems) {
+			asBytes = false
+		}
+		if asBytes && suffix != "bytes" {
+			for n, key := range secretPathItems {
+				if key != "*" && key != pathItems[n] {
 					asBytes = false
 					break
 				}

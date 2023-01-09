@@ -4,10 +4,9 @@
 
 Cuegen is a tool to build kubernetes resources with [CUE][CUE]. For this purpose,
 it extends the rich possibilities that [CUE][CUE] already provides out of the box
-with the ability to load resources, controlled by attributes, into kubernetes
-objects.
+with the ability to load resources, controlled by attributes.
 
-If CUE and creating k8s objects with CUE is new to you, the [k8s tutorial][k8stut]
+If CUE and creating k8s resources with CUE is new to you, the [k8s tutorial][k8stut]
 on the [CUE homepage][CUE] as well as examples in this repository are good
 starting points.
 
