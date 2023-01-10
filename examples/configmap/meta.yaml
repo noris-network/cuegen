@@ -1,0 +1,6 @@
+CGO_ENABLED: "0"
+go: "go1.20"
+vcs.modified: "false"
+vcs.revision: "54f9ca"
+vcs.time: "2023-01-10T12:00:00Z"
+vcs: "git"

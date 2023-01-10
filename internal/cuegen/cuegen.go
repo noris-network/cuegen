@@ -317,7 +317,7 @@ func (cg Cuegen) attrReadFile(value cue.Value, path string, attr cue.Attribute, 
 		case "nl":
 			alldata = alldata + strings.TrimRight(data, "\n") + "\n"
 		case "trim":
-			alldata = alldata + strings.Trim(data, " \t\n")
+			alldata = alldata + strings.TrimSpace(data)
 		default:
 			alldata = alldata + data
 		}
