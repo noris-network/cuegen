@@ -19,7 +19,8 @@ starting points.
 
 
 ## Usage
-Cuegen can be used stand-alone or as generator in [kustomize][kust].
+Cuegen can be used stand-alone or as generator in [kustomize][kust]
+([example](examples/kustomize/)).
 
 
 ## Configuration
@@ -131,6 +132,6 @@ Load all files from directory `scripts` as key/values into `configMap.scripts.da
 
 [CUE]:    https://cuelang.org
 [SOPS]:   https://github.com/mozilla/sops
-[kust]:   https://github.com/kubernetes-sigs/kustomize
+[kust]:   https://kustomize.io/
 [k8stut]: https://cuelang.org/docs/tutorials/
 [eg]:     examples/
