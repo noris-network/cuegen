@@ -17,9 +17,14 @@ package main
 import (
 	"os"
 
+	_ "embed"
+
 	"github.com/noris-network/cuegen/internal/app"
 )
 
+var build = "dev"
+
 func main() {
+	app.Build = build
 	os.Exit(app.Main())
 }

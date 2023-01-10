@@ -8,7 +8,7 @@ builds:
       - go_118_first_class
     binary: cuegen
     ldflags:
-      - "-s -w -X github.com/noris-network/cuegen/internal/app.build={{.Version}}"
+      - "-s -w -X main.build={{.Version}}"
     flags:
       - "-trimpath"
     mod_timestamp: "{{ .CommitTimestamp }}"

@@ -15,7 +15,6 @@
 package app
 
 import (
-	_ "embed"
 	"fmt"
 	"log"
 	"os"
@@ -27,7 +26,7 @@ import (
 
 const defaultCuegenFile = "cuegen.yaml"
 
-var build = "dev"
+var Build = ""
 var runningAsKustomizePlugin = os.Getenv("KUSTOMIZE_PLUGIN_CONFIG_ROOT") != ""
 
 func Main() int {
@@ -36,7 +35,7 @@ func Main() int {
 
 	// check args
 	if len(os.Args) == 2 && os.Args[1] == "version" {
-		fmt.Printf("cuegen %v", build)
+		fmt.Printf("cuegen %v", Build)
 		return 0
 	}
 	if len(os.Args) != 2 {
@@ -53,7 +52,7 @@ func Main() int {
 	// logging
 	log.SetPrefix("# cuegen: ")
 	if config.Debug {
-		log.Printf("build: %v", build)
+		log.Printf("build: %v", Build)
 		log.Printf("---")
 	}
 
