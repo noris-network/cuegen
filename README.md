@@ -1,4 +1,4 @@
-> ## ⚠ *Cuegen is ready to be used now, but documentation is not complete, yet. Stay tuned!*
+[![Release Cuegen](https://github.com/noris-network/cuegen/actions/workflows/release.yaml/badge.svg)](https://github.com/noris-network/cuegen/actions/workflows/release.yaml)
 
 # Cuegen
 
