@@ -1,4 +1,4 @@
-> ## ⚠ *Cuegen is ready to be used now, but documentation is not complete, yet. Examples are still missing, but will be added soon. Stay tuned!*
+> ## ⚠ *Cuegen is ready to be used now, but documentation is not complete, yet. Stay tuned!*
 
 # Cuegen
 
@@ -7,7 +7,7 @@ it extends the rich possibilities that [CUE][CUE] already provides out of the bo
 with the ability to load resources, controlled by attributes.
 
 If CUE and creating k8s resources with CUE is new to you, the [k8s tutorial][k8stut]
-on the [CUE homepage][CUE] as well as examples in this repository are good
+on the [CUE homepage][CUE] as well as [examples][eg] in this repository are good
 starting points.
 
 ## Features
@@ -65,7 +65,7 @@ Example:
 Because of the way CUE and cuegen work, all `*.cue` files need to be in the root
 of the components directory.
 No special files need to be present for a chart, and although cuegen does not
-require or evaluate them, it is recommended to add metadata (see examples).
+require or evaluate them, it is recommended to add metadata (see [examples][eg]).
 For git repositories, a branch or tag name can be specified with the `ref`
 parameter.
 If a zip file has only one directory in it's root, this level is skipped and
@@ -133,3 +133,4 @@ Load all files from directory `scripts` as key/values into `configMap.scripts.da
 [SOPS]:   https://github.com/mozilla/sops
 [kust]:   https://github.com/kubernetes-sigs/kustomize
 [k8stut]: https://cuelang.org/docs/tutorials/
+[eg]:     examples/
