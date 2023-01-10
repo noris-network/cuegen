@@ -5,10 +5,13 @@ builds:
   - env:
       - CGO_ENABLED=0
     targets:
-      - linux_amd64
+      - go_118_first_class
     binary: cuegen
     ldflags:
       - "-s -w -X github.com/noris-network/cuegen/internal/app.build={{.Version}}"
+    flags:
+      - "-trimpath"
+    mod_timestamp: "{{ .CommitTimestamp }}"
 checksum:
   name_template: "checksums.txt"
 changelog:
