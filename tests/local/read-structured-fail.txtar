@@ -21,9 +21,11 @@ objectsPath: objects
 -- chart/a.cue --
 package kube
 
-objects: [{
+obj: {
   a: {} @read(data.yaml)
-}]
+}
+
+objects: [obj]
 
 -- chart/data.yaml --
 a=b

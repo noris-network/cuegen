@@ -10,9 +10,11 @@ objectsPath: objects
 -- chart/a.cue --
 package kube
 
-objects: [{
+obj: {
 	dir: {} @read(data.json)
-}]
+}
+
+objects: [obj]
 
 -- chart/data.json --
 {"g":{"k":{"l": "data-l","m": "data-m"}}}

@@ -14,9 +14,11 @@ objectsPath: objects
 -- chart1/a.cue --
 package kube
 
-objects: [{
+obj: {
     a: string @readfile(file1)
-}]
+}
+
+objects: [obj]
 
 -- chart2/cuegen.yaml --
 objectsPath: objects
@@ -24,9 +26,11 @@ objectsPath: objects
 -- chart2/a.cue --
 package kube
 
-objects: [{
+obj: {
     b: string @readfile(file1,file2)
-}]
+}
+
+objects: [obj]
 
 -- chart1/file1 --
 FILE-A

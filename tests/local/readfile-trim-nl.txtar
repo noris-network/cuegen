@@ -17,9 +17,11 @@ objectsPath: objects
 -- chart1/a.cue --
 package kube
 
-objects: [{
+obj: {
     a: string @readfile(file=trim,file=trim,file=trim)
-}]
+}
+
+objects: [obj]
 
 -- chart2/cuegen.yaml --
 objectsPath: objects
@@ -27,9 +29,11 @@ objectsPath: objects
 -- chart2/a.cue --
 package kube
 
-objects: [{
+obj: {
     b: string @readfile(file1=nl,file2=nl,file3=nl)
-}]
+}
+
+objects: [obj]
 
 -- chart1/file --
 FILE1

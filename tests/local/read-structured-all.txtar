@@ -10,9 +10,11 @@ objectsPath: objects
 -- chart/a.cue --
 package kube
 
-objects: [{
+obj: {
 	dir: {} @read(dir, data.env, data.yaml, data.json)
-}]
+}
+
+objects: [obj]
 
 -- chart/dir/a --
 A

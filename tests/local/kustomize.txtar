@@ -35,11 +35,13 @@ objectsPath: objects
 -- chart/a.cue --
 package kube
 
-objects: [{
+obj: {
     metadata: name: "dummy"   // name and kind are
     kind: "ConfigMap"         // required by kustomize
     data: aaa: string @readfile(file=trim)
-}]
+}
+
+objects: [obj]
 
 -- chart/file --
 FILE

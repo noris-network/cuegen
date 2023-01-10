@@ -15,9 +15,11 @@ objectsPath: objects
 -- chart1/a.cue --
 package kube
 
-objects: [{
+obj: {
     secret: string @readfile(secret.txt=trim)
-}]
+}
+
+objects: [obj]
 
 -- chart2/cuegen.yaml --
 objectsPath: objects
@@ -25,9 +27,11 @@ objectsPath: objects
 -- chart2/a.cue --
 package kube
 
-objects: [{
+obj: {
     secret: string @readfile(secret.txt=trim)
-}]
+}
+
+objects: [obj]
 
 -- keys.txt --
 # * * *  this key is just for testing, never use it for anything else  * * *

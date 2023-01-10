@@ -10,6 +10,8 @@ objectsPath: objects
 -- chart/a.cue --
 package kube
 
-objects: [{
+obj: {
     b: string @readfile(no-such-file)
-}]
+}
+
+objects: [obj]
