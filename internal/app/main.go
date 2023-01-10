@@ -36,7 +36,7 @@ func Main() int {
 
 	// check args
 	if len(os.Args) == 2 && os.Args[1] == "version" {
-		log.Printf("cuegen %v", build)
+		fmt.Printf("cuegen %v", build)
 		return 0
 	}
 	if len(os.Args) != 2 {
