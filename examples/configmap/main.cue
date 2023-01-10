@@ -1,18 +1,18 @@
 package kube
 
-configMap: [ID=_]: {metadata: name: ID}
-
-configMap: "app-metadata": {
+configMap: [ID=_]: {
 	apiVersion: "v1"
 	kind:       "ConfigMap"
+	metadata: name: ID
+}
+
+configMap: "app-metadata": {
 	data: {
 		version: string @readfile(version.txt=trim)
 	} @readmap(meta.yaml)
 }
 
 configMap: "scripts": {
-	apiVersion: "v1"
-	kind:       "ConfigMap"
 	data: {} @readmap(scripts)
 }
 
