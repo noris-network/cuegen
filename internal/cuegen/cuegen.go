@@ -80,6 +80,9 @@ func (cg Cuegen) Exec() error {
 			filename := v.Pos().Filename()
 			subPath, _ := strings.CutPrefix(filename, cg.ChartRoot+"/")
 			cuePath := v.Path().String()
+			if strings.HasPrefix(cuePath, cg.ObjectsPath+"[") {
+				return false
+			}
 			if cg.Debug {
 				// suggest workaround
 				if strings.Contains(filename, "/cue.mod/gen/k8s.io/") {

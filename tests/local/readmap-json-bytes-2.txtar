@@ -1,0 +1,30 @@
+### readmap-json-bytes-2.txtar
+
+# @readmap(json) with bytes type, two cue files
+exec cuegen chart
+stdout 'a: ZGF0YS1h'
+stdout 'b: ZGF0YS1i'
+
+-- chart/cuegen.yaml --
+objectsPath: objects
+secretDataPath: secret.*.data
+
+-- chart/a.cue --
+package kube
+
+secret: [ID=_]: {
+	metadata: {name: "\(ID)"}
+	data: {[string]: bytes}
+}
+
+secret: mysecret: {
+	data: {} @readmap(data.json)
+}
+
+-- chart/b.cue --
+package kube
+
+objects: [ for v in secret {v}]
+
+-- chart/data.json --
+{"a":"data-a","b":"data-b"}
