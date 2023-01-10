@@ -1,4 +1,4 @@
-> ## ⚠ *Cuegen is ready to be used now, but documentation is not complete, yet. Examples and a binary release are still missing, but will be added soon. Stay tuned!*
+> ## ⚠ *Cuegen is ready to be used now, but documentation is not complete, yet. Examples are still missing, but will be added soon. Stay tuned!*
 
 # Cuegen
 
