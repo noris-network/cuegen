@@ -10,6 +10,6 @@ To run these examples, put `cuegen` into your `PATH` and execute
 
     cuegen examples/<name-of-example-dir>
 
-from the checked out repository root.
+unless otherwise described in the example.
 
 [SOPS]:   https://github.com/mozilla/sops

@@ -9,7 +9,7 @@ When running on linux and `cuegen` is already in your `PATH`, just run:
     mkdir -p $PLUGIN_DIR
     cp $(command -v cuegen) $PLUGIN_DIR/Cuegen
 
-Run the example with
+To run this example `kustomize` has to be installed. Run the example with
 
     kustomize build --enable-alpha-plugins examples/kustomize
 
