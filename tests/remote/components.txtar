@@ -7,14 +7,15 @@ cmp stdout expect
 -- chart/cuegen.yaml --
 objectsPath: objects
 components:
-  - https://github.com/nxcc/cuegen-test-chart-one
+  - https://github.com/nxcc/cuegen-example-component-d?ref=v2
 
 -- chart/a.cue --
 package kube
 
-objects: [ configMap.oneconf ]
+objects: [ for v in configMap {v} ]
 
 -- expect --
 data:
-  hostname: one.example.com
-  index: <h1>Welcome to One</h1>
+  page_a.html: |-
+    <h1>Welcome to Page D</h1>
+    Version 2

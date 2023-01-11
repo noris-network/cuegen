@@ -7,7 +7,7 @@ cmp stdout expect
 -- chart/cuegen.yaml --
 objectsPath: objects
 components:
-  - https://github.com/nxcc/cuegen-test-chart-one
+  - https://github.com/nxcc/cuegen-example-component-d?ref=v0
   - ../comp1
   - ../comp2
 
@@ -48,13 +48,12 @@ COMP2
 data: FILE
 name: cm0
 ---
+data:
+  page_a.html: <h1>Welcome to Page D</h1>
+name: page-d
+---
 data: COMP1
 name: cm1
----
-data:
-  hostname: one.example.com
-  index: <h1>Welcome to One</h1>
-name: oneconf
 ---
 data: COMP2
 name: cm2

@@ -1,0 +1,6 @@
+objectsPath: objects
+components:
+  - ../component_a
+  - ../component_b
+  - ../component_c.zip
+  - https://github.com/nxcc/cuegen-example-component-d?ref=v1
