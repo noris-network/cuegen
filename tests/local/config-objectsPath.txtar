@@ -12,13 +12,20 @@ stdout 'a: b'
 exec cuegen chart/cuegen3.yaml
 stdout 'c: d'
 
+# config: no objectsPath
+! exec cuegen chart/cuegen4.yaml
+stderr 'loadconfig: EOF'
+
 -- chart/cuegen1.yaml --
+debug: false
 
 -- chart/cuegen2.yaml --
 objectsPath: objects
 
 -- chart/cuegen3.yaml --
 objectsPath: otherPath
+
+-- chart/cuegen4.yaml --
 
 -- chart/a.cue --
 package kube

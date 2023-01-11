@@ -95,13 +95,15 @@ func loadConfig(file string) (string, cuegen.Config, error) {
 	if fileInfo.IsDir() {
 		file = filepath.Join(file, defaultCuegenFile)
 	}
-	data, err := os.ReadFile(file)
+	fh, err := os.Open(file)
 	if err != nil {
 		return "", cuegen.Config{}, err
 	}
 	config := cuegen.Config{}
-	if err := yaml.Unmarshal(data, &config); err != nil {
-		return "", cuegen.Config{}, fmt.Errorf("unmarshal config: %v", err)
+	decoder := yaml.NewDecoder(fh)
+	decoder.KnownFields(true)
+	if err := decoder.Decode(&config); err != nil {
+		return "", cuegen.Config{}, err
 	}
 	return file, config, nil
 }

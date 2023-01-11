@@ -20,3 +20,8 @@ changelog:
     exclude:
       - "^docs:"
       - "^test:"
+archives:
+  - files:
+      - LICENSE*
+      - README*
+      - examples/**/*
