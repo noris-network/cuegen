@@ -11,7 +11,7 @@ cuegen.yaml:
 
 Components can be
   * local directories
-  * zip files
+  * zip files, the `ref` parameter allows to select tags or branches
   * references to git repositories
 
 > *Local paths are not restricted. As this could be a security problem,
