@@ -1,0 +1,4 @@
+objectsPath: objects
+components:
+  - ../../../applications/myapp
+checkPath: values
