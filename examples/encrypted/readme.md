@@ -66,7 +66,7 @@ To run this example you need set
 
     SOPS_AGE_KEY=AGE-SECRET-KEY-14QUHLE5A6UNSKNYXLF5ZA26P3NCFX8P68JQ066T7VJ6JW5G8FHWQN4HAUQ
 
-in the envorinment. (what is [age][age]?)
+in the environment. (what is [age][age]?)
 
 [SOPS]:   https://github.com/mozilla/sops
 [age]:    https://age-encryption.org
