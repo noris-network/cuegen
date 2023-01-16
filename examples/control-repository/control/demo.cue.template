@@ -1,0 +1,19 @@
+package kube
+
+demo: {
+
+	// When using an internal registry as proxy, e.g. harbor, this has to be set.
+	// Otherwise it can be left empty.
+	registryPrefix: ""
+
+	// DNS names of your clusters that will be the base name for your app. If you want to
+	// set the name in a different way, just edit */*/app-config.cue -> values.wekan.hostname
+	prodClusterBaseURL: "apps.example.com"
+	devClusterBaseURL:  "dev.example.com"
+
+	// Do you want the example deployment to send notification mails? Then configue
+	// smtpURL, (cf. https://github.com/wekan/wekan/wiki/Troubleshooting-Mail), otherwise
+	// just leave it empty. In that case registing with your wekan instance will show an
+	// "Internal server error", but you can login anyway.
+	smtpURL: "smtp://mail.internal.example.com:25"
+}

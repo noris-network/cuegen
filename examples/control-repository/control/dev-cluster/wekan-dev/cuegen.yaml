@@ -1,4 +1,3 @@
-debug: false
 objectsPath: objects
 secretDataPath: secret.*.data
 checkPaths:

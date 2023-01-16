@@ -1,95 +1,63 @@
 package kube
 
-#namespace: string
+//// ConfigMap /////////////////////////////////////////////////////////////////////////////////////
 
 configMap: [ID=_]: {
+	_labels:    commonLabels
 	apiVersion: "v1"
 	kind:       "ConfigMap"
+	metadata: labels:    _labels
 	metadata: name:      ID
 	metadata: namespace: string | *#namespace
-	_labels: commonLabels
-	metadata: labels: _labels
 }
 
-secret: [ID=_]: {
-	apiVersion: "v1"
-	kind:       "Secret"
-	metadata: name:      ID
-	metadata: namespace: string | *#namespace
-	_labels: commonLabels
-	metadata: labels: _labels
-	type: string | *"Opaque"
-	data: {[string]: bytes}
-}
+//// Deployment ////////////////////////////////////////////////////////////////////////////////////
 
 deployment: [ID=_]: {
+	_labels:    (#mergeLabels & {i: [commonLabels, {"app-component": ID}]}).o
 	apiVersion: "apps/v1"
 	kind:       "Deployment"
+	metadata: labels:    _labels
 	metadata: name:      ID
 	metadata: namespace: string | *#namespace
-	_labels: (#mergeLabels & {in: [commonLabels, {"app-component": ID}]}).out
-	metadata: labels: _labels
 	spec: selector: matchLabels: _labels
 	spec: template: metadata: labels: _labels
 }
 
-statefulSet: [ID=_]: {
-	apiVersion: "apps/v1"
-	kind:       "StatefulSet"
-	metadata: name:      ID
-	metadata: namespace: string | *#namespace
-	_labels: (#mergeLabels & {in: [commonLabels, {"app-component": ID}]}).out
-	metadata: labels: _labels
-	spec: selector: matchLabels: _labels
-	spec: template: metadata: labels: _labels
-}
+//// Ingress ///////////////////////////////////////////////////////////////////////////////////////
 
-service: [ID=_]: {
-	apiVersion: "v1"
-	kind:       "Service"
-	metadata: name:      ID
-	metadata: namespace: string | *#namespace
-}
-
+// TODO!!!!!!!!
 ingress: [ID=_]: {
-	let svc = service
+	//let svc = service
 	apiVersion: "networking.k8s.io/v1"
 	kind:       "Ingress"
 	metadata: name:      ID
 	metadata: namespace: string | *#namespace
-	spec: rules: [{
-		host: string
-		http: paths: *[
-				{
-				backend: service: name: ID
-				backend: service: port: number: svc.wekan.spec.ports[0].port
-				pathType: "Prefix"
-				path:     "/"
-			},
-		] | [...]
-	}]
+	// spec: rules: [{
+	// 	host: string
+	// 	// http: paths: *[
+	// 	// 		{
+	// 	// 		backend: service: name: ID
+	// 	// 		backend: service: port: number: svc.wekan.spec.ports[0].port
+	// 	// 		pathType: "Prefix"
+	// 	// 		path:     "/"
+	// 	// 	},
+	// 	// ] | [...]
+	// }]
 }
 
-prometheusRule: [ID=_]: {
-	apiVersion: "monitoring.coreos.com/v1"
-	kind:       "PrometheusRule"
-	metadata: name:      ID
-	metadata: namespace: string | *#namespace
-	_labels: commonLabels
-	metadata: labels: _labels
-	spec: {...}
-}
+//// PersistentVolumeClaim /////////////////////////////////////////////////////////////////////////
 
 persistentVolumeClaim: [ID=_]: {
+	_labels:    commonLabels
 	apiVersion: "v1"
 	kind:       "PersistentVolumeClaim"
+	metadata: labels:    _labels
 	metadata: name:      ID
 	metadata: namespace: string | *#namespace
-	_labels: commonLabels
-	metadata: labels: _labels
 	spec: {
 		accessModes: [
-			"ReadWriteOnce" | "ReadWriteMany" | *"ReadWriteOnce",
+			*"ReadWriteOnce" | "ReadOnlyMany" | "ReadWriteMany",
 		]
 		resources: {
 			requests: {
@@ -99,62 +67,55 @@ persistentVolumeClaim: [ID=_]: {
 	}
 }
 
-service: {
-	for _, xxxxxxxxxxxx in [deployment, statefulSet]
-	for deploymentName, deployment in xxxxxxxxxxxx {
-		"\(deploymentName)": {
-			metadata: labels: deployment._labels
-			spec: {
-				selector: deployment._labels
-				ports: [
-					for _, container in deployment.spec.template.spec.containers
-					if container.ports != _|_
-					for portName, portObj in container.ports {
-						name:       portObj.name
-						targetPort: portObj.name
-						port:       portObj.containerPort
-						if portObj._ingress != _|_ {
-							_ingress: portObj._ingress
-						}
-					},
-				]
-			}
-		}
-	}
+//// PrometheusRule ////////////////////////////////////////////////////////////////////////////////
+
+prometheusRule: [ID=_]: {
+	_labels:    commonLabels
+	apiVersion: "monitoring.coreos.com/v1"
+	kind:       "PrometheusRule"
+	metadata: labels:    _labels
+	metadata: name:      ID
+	metadata: namespace: string | *#namespace
 }
 
-// Ingress: ... _ingress
-ingress: {
-	for serviceName, service in service
-	for _, portObj in service.spec.ports {
-		if portObj._ingress != _|_ {
-			"\(serviceName)-\(portObj.name)": {
-				spec: rules: [{
-					host: portObj._ingress.hostname
-					http: paths: [
-						{
-							backend: service: name: serviceName
-							backend: service: port: name: portObj.name
-							pathType: "Prefix"
-							path:     "/"
-						},
-					]
-				}]
-				if portObj._ingress.secretName == _|_ {
-					metadata: annotations: "route.openshift.io/termination": "edge"
-				}
-				if portObj._ingress.secretName != _|_ {
-					spec: tls: [{
-						hosts: [
-							portObj._ingress.hostname,
-						]
-						secretName: portObj._ingress.secretName
-					}]
-				}
-			}
-		}
-	}
+//// Secret ////////////////////////////////////////////////////////////////////////////////////////
+
+secret: [ID=_]: {
+	_labels:    commonLabels
+	apiVersion: "v1"
+	kind:       "Secret"
+	metadata: labels:    _labels
+	metadata: name:      ID
+	metadata: namespace: string | *#namespace
+	type: string | *"Opaque"
+	data: {[string]: bytes}
 }
+
+//// Service ///////////////////////////////////////////////////////////////////////////////////////
+
+service: [ID=_]: {
+	apiVersion: "v1"
+	kind:       "Service"
+	metadata: name:      ID
+	metadata: namespace: string | *#namespace
+}
+
+//// StatefulSet ///////////////////////////////////////////////////////////////////////////////////
+
+statefulSet: [ID=_]: {
+	_labels:    (#mergeLabels & {i: [commonLabels, {"app-component": ID}]}).o
+	apiVersion: "apps/v1"
+	kind:       "StatefulSet"
+	metadata: labels:    _labels
+	metadata: name:      ID
+	metadata: namespace: string | *#namespace
+	spec: selector: matchLabels: _labels
+	spec: template: metadata: labels: _labels
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+#namespace: string
 
 commonLabels: {
 	"myorg/app-id": global.applicationID
@@ -164,10 +125,10 @@ commonLabels: {
 configMap: {}
 deployment: {}
 ingress: {}
+persistentVolumeClaim: {}
+prometheusRule: {}
 secret: {}
 service: {}
-prometheusRule: {}
-persistentVolumeClaim: {}
 statefulSet: {}
 
 // gather all object sets
@@ -175,24 +136,15 @@ objectSets: [
 	configMap,
 	deployment,
 	ingress,
+	persistentVolumeClaim,
+	prometheusRule,
 	secret,
 	service,
-	prometheusRule,
-	persistentVolumeClaim,
 	statefulSet,
 ]
 
 // gather all objects
 objects: [ for v in objectSets for x in v {x}]
 
-//
-
-//
-
-//
-//allLabels: (#mergeLabels & {in: [cLabels, myLabels]}).out
-
-#mergeLabels: {
-	in: [...]
-	out: {for _, ilabels in in {ilabels}}
-}
+// merge labels 'function'
+#mergeLabels: {i: [...], o: {for _, ilabels in i {ilabels}}}

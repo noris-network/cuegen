@@ -5,4 +5,5 @@ global: {
 	monitoringEnabled: bool
 	alertingEnabled:   bool
 	clusterBaseURL:    string
+	registryPrefix:    *"" | string
 }
