@@ -152,6 +152,8 @@ func getGitFS(component string) (fs.FS, error) {
 	if len(q) > 1 {
 		return nil, fmt.Errorf("getGitFS: too many parameters: %v", err)
 	}
+	subDir := u.Fragment
+	u.Fragment = ""
 	u.RawQuery = ""
 	opts := git.CloneOptions{
 		URL: os.ExpandEnv(u.String()),
@@ -160,25 +162,38 @@ func getGitFS(component string) (fs.FS, error) {
 	if len(q) == 1 && ref == "" {
 		return nil, errors.New("getGitFS: only parameter ref supported %v")
 	}
-	if ref != "" {
-		// tag?
-		opts.ReferenceName = plumbing.ReferenceName("refs/tags/" + ref)
+	fsys, err := func(ref string) (*gitfs.GitFS, error) {
+		if ref != "" {
+			// tag?
+			opts.ReferenceName = plumbing.ReferenceName("refs/tags/" + ref)
+			fsys, err := gitfs.NewWithOptions(&opts)
+			if err == nil {
+				return fsys, nil
+			}
+			// branch?
+			opts.ReferenceName = plumbing.ReferenceName("refs/heads/" + ref)
+			fsys, err = gitfs.NewWithOptions(&opts)
+			if err == nil {
+				return fsys, nil
+			}
+		}
 		fsys, err := gitfs.NewWithOptions(&opts)
-		if err == nil {
-			return fsys, nil
+		if err != nil {
+			return nil, fmt.Errorf("getGitFS: %v", err)
 		}
-		// branch?
-		opts.ReferenceName = plumbing.ReferenceName("refs/heads/" + ref)
-		fsys, err = gitfs.NewWithOptions(&opts)
-		if err == nil {
-			return fsys, nil
-		}
+		return fsys, nil
+	}(ref)
+	if err != nil {
+		return nil, fmt.Errorf("getGitFS: open: %v", err)
 	}
-	fsys, err := gitfs.NewWithOptions(&opts)
-	if err == nil {
+	if subDir == "" {
 		return fsys, nil
 	}
-	return nil, fmt.Errorf("getGitFS: %v", err)
+	subfsys, err := fs.Sub(fsys, subDir)
+	if err != nil {
+		return nil, fmt.Errorf("getGitFS: sub: %v", err)
+	}
+	return subfsys, nil
 }
 
 // getZipFS returns a fs.FS from the given zip file.

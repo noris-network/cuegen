@@ -1,0 +1,13 @@
+### components-subpath.txtar
+
+# components: remote
+exec cuegen chart
+stdout 'vcs.time: "2023-01-10T12:00:00Z"'
+
+-- chart/cuegen.yaml --
+objectsPath: objects
+components:
+  - https://github.com/noris-network/cuegen?ref=v0.2.1#examples/configmap
+
+-- chart/a.cue --
+package kube

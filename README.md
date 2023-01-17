@@ -65,6 +65,7 @@ Example:
       - ../database-chart
       - ../common-static-resources.zip
       - https://github.com/nxcc/cuegen-test-chart-one?ref=v0.1.0
+      - https://github.com/noris-network/cuegen?ref=v0.2.1#examples/configmap
 
 Because of the way CUE and cuegen work, all `*.cue` files need to be in the root
 of the components directory.
