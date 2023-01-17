@@ -2,6 +2,8 @@ package kube
 
 values: {}
 
+_useGenerators: "v0"
+
 secret: "wekan-auth": data: {
 	MONGO_URL: '\(values.wekan.mongodbURL)'
 }

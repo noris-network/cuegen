@@ -2,6 +2,8 @@ package kube
 
 values: {}
 
+_useGenerators: "v0"
+
 secret: "mongodb-auth": data: {
 	MONGODB_EXTRA_USERNAMES: '\(values.mongodb.auth.username)'
 	MONGODB_EXTRA_PASSWORDS: '\(values.mongodb.auth.password)'
