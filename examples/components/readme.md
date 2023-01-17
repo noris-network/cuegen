@@ -22,7 +22,7 @@ keep it simple, just a few ConfigMaps are imported. But components could
 also be, e.g. complete Database deployments. Or the main chart can just
 contain configuration data and all "real" objects like Deployments are
 imported as component and configuration is applied. See example
-"control-repository" (soon).
+["control-repository"](../control-repository).
 
 YAML output:
 
