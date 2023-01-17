@@ -1,5 +1,10 @@
 package kube
 
+chart: mongodb: {
+	version:    "dev"
+	appVersion: "6.0.3"
+}
+
 values: {
 	mongodb: close({
 		image: *"\(global.registryPrefix)bitnami/mongodb:6.0.3" | string

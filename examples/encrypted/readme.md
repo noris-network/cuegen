@@ -62,7 +62,7 @@ YAML output:
       DB_PASS: NTNjcjN0
       AUTH_TOKEN: c21obHJrdjYtZW50ODJoeGQtdG41NnVwb2ctdnppbG1wdmctaHdxdzQ3dTk=
 
-To run this example you need set
+To run this example you need to set
 
     SOPS_AGE_KEY=AGE-SECRET-KEY-14QUHLE5A6UNSKNYXLF5ZA26P3NCFX8P68JQ066T7VJ6JW5G8FHWQN4HAUQ
 

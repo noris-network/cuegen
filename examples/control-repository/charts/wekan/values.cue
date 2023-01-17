@@ -1,5 +1,10 @@
 package kube
 
+chart: wekan: {
+	version:    "dev"
+	appVersion: "6.69"
+}
+
 values: {
 	wekan: close({
 		hostname: string
