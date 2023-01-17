@@ -26,24 +26,11 @@ deployment: [ID=_]: {
 
 //// Ingress ///////////////////////////////////////////////////////////////////////////////////////
 
-// TODO!!!!!!!!
 ingress: [ID=_]: {
-	//let svc = service
 	apiVersion: "networking.k8s.io/v1"
 	kind:       "Ingress"
 	metadata: name:      ID
 	metadata: namespace: string | *#namespace
-	// spec: rules: [{
-	// 	host: string
-	// 	// http: paths: *[
-	// 	// 		{
-	// 	// 		backend: service: name: ID
-	// 	// 		backend: service: port: number: svc.wekan.spec.ports[0].port
-	// 	// 		pathType: "Prefix"
-	// 	// 		path:     "/"
-	// 	// 	},
-	// 	// ] | [...]
-	// }]
 }
 
 //// PersistentVolumeClaim /////////////////////////////////////////////////////////////////////////
