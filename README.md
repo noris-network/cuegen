@@ -23,8 +23,16 @@ starting points.
 
 ## Usage
 Cuegen can be used stand-alone or as generator in [kustomize][kust]
-([example](examples/kustomize/)).
+(see [example](examples/kustomize/)).
 
+
+## Install
+
+Download the [latest release][rel] or build from source with with go1.20rc3 or later:
+
+    go install github.com/noris-network/cuegen@latest
+
+To use cuegen as kustomize plugin, find instructions in the [kustomize example][kusteg].
 
 ## Configuration
 A configuration file (preferred name: `cuegen.yaml`) is required to run `cuegen`.
@@ -134,8 +142,10 @@ Load all files from directory `scripts` as key/values into `configMap.scripts.da
     }
 
 
-[CUE]:    https://cuelang.org
-[SOPS]:   https://github.com/mozilla/sops
-[kust]:   https://kustomize.io/
-[k8stut]: https://cuelang.org/docs/tutorials/
-[eg]:     examples/
+[CUE]:         https://cuelang.org
+[SOPS]:        https://github.com/mozilla/sops
+[kust]:        https://kustomize.io/
+[k8stut]:      https://cuelang.org/docs/tutorials/
+[eg]:          examples/
+[rel]:         https://github.com/noris-network/cuegen/releases/latest
+[kusteg]:      examples/kustomize
