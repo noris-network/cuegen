@@ -4,21 +4,22 @@
 # Cuegen
 
 Cuegen is a tool to build kubernetes resources with [CUE][CUE]. It solves the
-problem of how to easily import external data (scripts, certificates, keys, etc.)
-into existing cue charts. For this purpose, it extends the rich possibilities
-that [CUE][CUE] already provides out of the box with the ability to load resources,
-controlled by attributes.
+problems of composing and versioning of "charts", as well as easily importing
+external data (scripts, certificates, keys, etc.) into cue charts. For this
+purpose, it extends the rich possibilities that [CUE][CUE] already provides
+out of the box with the ability to "compose" charts from various sources and
+load resources, controlled by attributes.
 
 If CUE and creating k8s resources with CUE is new to you, the [k8s tutorial][k8stut]
 on the [CUE homepage][CUE] as well as [examples][eg] in this repository are good
 starting points.
 
 ## Features
+  * Compose manifests from various, versioned sources (local directories, git-repositories)
   * Load file contents into CUE values, e.g. a script into a ConfigMap key
   * Load whole directories at once into a CUE struct, e.g. a ConfigMap as key/values
   * Load structured data (JSON/YAML/env) into a CUE struct
   * Automatically decrypt [SOPS][SOPS]-encrypted data
-  * Merge CUE files from different sources (local directories, git-repositories)
 
 
 ## Usage
@@ -27,6 +28,8 @@ Cuegen can be used stand-alone or as generator in [kustomize][kust]
 
 
 ## Install
+[![Releases](https://img.shields.io/github/release/noris-network/cuegen.svg)](https://github.com/noris-network/cuegen/releases)
+[![Releases](https://img.shields.io/github/downloads/noris-network/cuegen/total.svg)](https://github.com/noris-network/cuegen/releases)
 
 Download the [latest release][rel] or build from source with with go1.20rc3 or later:
 
