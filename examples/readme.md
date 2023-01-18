@@ -5,6 +5,8 @@
 * [encrypted](encrypted): load and decrypt [SOPS][SOPS]-encrypted data
 * [kustomize](kustomize): use `cuegen` as kustomize plugin
 * [components](components): compose several charts into one
+* [control-repository](control-repository): full example how to install several
+  instances of an application in various environments
 
 To run these examples, put `cuegen` into your `PATH` and execute
 

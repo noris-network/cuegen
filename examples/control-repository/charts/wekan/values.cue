@@ -10,7 +10,7 @@ values: {
 		hostname: string
 		image:    *"\(global.registryPrefix)wekanteam/wekan:v6.69" | string
 		if values.wekan.monitoringEnabled {
-			ipAuthProxyImage: *"\(global.registryPrefix)nxcc/ip-auth-proxy:0.1.2" | string
+			ipAuthProxyImage: *"\(global.registryPrefix)nxcc/ip-auth-proxy:0.1.4" | string
 			authorizedIPS:    *"10.0.0.0/8,::1/128" | string
 		}
 		mongodbURL:        string
