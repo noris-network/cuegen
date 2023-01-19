@@ -12,7 +12,7 @@ controlled by attributes.
 
 > *If CUE and creating k8s resources with CUE is new to you, the
 [CUE homepage][CUE], the [k8s tutorial][k8stut], as well as [examples][eg]
-in this repository are good starting points.*
+in this repository (in that order) are good starting points.*
 
 ## Table of Contents
   * [Features](#features)
