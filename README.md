@@ -5,37 +5,50 @@
 
 Cuegen is a tool to build kubernetes resources with [CUE][CUE]. It solves the
 problems of composing and versioning of "charts", as well as easily importing
-external data (scripts, certificates, keys, etc.) into cue charts. For this
+external data (scripts, certificates, keys, etc.) into CUE charts. For this
 purpose, it extends the rich possibilities that [CUE][CUE] already provides
-out of the box with the ability to "compose" charts from various sources and
-load resources, controlled by attributes.
+with the ability to "compose" charts from various sources and load resources,
+controlled by attributes.
 
-If CUE and creating k8s resources with CUE is new to you, the [k8s tutorial][k8stut]
-on the [CUE homepage][CUE] as well as [examples][eg] in this repository are good
-starting points.
+> *If CUE and creating k8s resources with CUE is new to you, the
+[CUE homepage][CUE], the [k8s tutorial][k8stut], as well as [examples][eg]
+in this repository are good starting points.*
+
+## Table of Contents
+  * [Features](#features)
+  * [Install](#install)
+  * [Usage](#Usage)
+  * [Configuration](#configuration)
+  * [Components](#components)
+  * [Attributes](#attributes)
+  * [Changelog](#changelog)
 
 ## Features
   * Compose manifests from various, versioned sources (local directories, git-repositories)
   * Load file contents into CUE values, e.g. a script into a ConfigMap key
-  * Load whole directories at once into a CUE struct, e.g. a ConfigMap as key/values
+  * Load whole directories as key/values data at once, e.g. into a ConfigMap
   * Load structured data (JSON/YAML/env) into a CUE struct
   * Automatically decrypt [SOPS][SOPS]-encrypted data
-
-
-## Usage
-Cuegen can be used stand-alone or as generator in [kustomize][kust]
-(see [example](examples/kustomize/)).
-
 
 ## Install
 [![Releases](https://img.shields.io/github/release/noris-network/cuegen.svg)](https://github.com/noris-network/cuegen/releases)
 [![Releases](https://img.shields.io/github/downloads/noris-network/cuegen/total.svg)](https://github.com/noris-network/cuegen/releases)
 
-Download the [latest release][rel] or build from source with with go1.20rc3 or later:
+Download the [latest release][rel] or build with *go1.20rc3 or later*:
 
     go install github.com/noris-network/cuegen@latest
 
 To use cuegen as kustomize plugin, find instructions in the [kustomize example][kusteg].
+
+## Usage
+Cuegen can be used stand-alone or as generator in [kustomize][kust]
+(see [example](examples/kustomize/)).
+
+    cuegen path/to/cuegen.yaml
+    # or
+    cuegen path/to/directory-containing-cuegen-dot-yaml
+
+Have a look at the [examples][eg] for some ready-to-run examples.
 
 ## Configuration
 A configuration file (preferred name: `cuegen.yaml`) is required to run `cuegen`.
@@ -46,13 +59,14 @@ A configuration file (preferred name: `cuegen.yaml`) is required to run `cuegen`
     # (optional) all values in this path are checked to be concrete values
     checkPath: values
 
-    # (optional) same as 'checkPath', in case more than one path needs to be checked
+    # (optional) same as 'checkPath', in case more than one path needs to be
+    # checked. The 'objectsPath' with always be checked.
     checkPaths:
       - values
       - morevalues
 
     # (optional) values in this path are loaded as []byte. This will
-    # automatically base64 encode them when dumped to YAML
+    # automatically base64 encode values when dumped to YAML
     secretDataPath: secret.*.data
 
     # (optional, default: false) print some info useful for debugging
@@ -69,6 +83,9 @@ Components can be
   * directories outside the main chart
   * zip files
   * git repositories
+
+> *Local paths are not restricted. As this could be a security problem,
+> this will change in a future release.*
 
 Example:
 
@@ -144,6 +161,14 @@ Load all files from directory `scripts` as key/values into `configMap.scripts.da
 	    data: {} @read(scripts)
     }
 
+
+## Changelog
+
+  * `v0.1.0` - Initial release
+  * `v0.1.1` - Improved attribute lookup
+  * `v0.2.0` - Added checks when reading `cuegen.yaml`
+  * `v0.2.1` - Improved error messages
+  * `v0.3.0` - Added ability to read subpaths from git repos
 
 [CUE]:         https://cuelang.org
 [SOPS]:        https://github.com/mozilla/sops
