@@ -39,14 +39,14 @@ Finally, it is suggested to add metadata to charts
 When all included charts have these set, the ConfigMap `about-components`, defined
 in [control/about.cue](control/about.cue) contains a list of installed components.
 
-## Environments
+## Example Environments
 
 The application consists of two charts, wekan and mongodb, which are joined with
 `cuegen.yaml`. Depending on the environment, the charts are located in the local
 file system (dev) or are pulled from git repositories with tagged versions
 (qa, prod).
 
-## Example Files
+### Example Files
 
     control-repository/
     ├── charts                           # demo charts
@@ -103,3 +103,19 @@ the "prod" manifest, execute
 [mongodbChart]: https://github.com/nxcc/cuegen-example-mongodb
 [wekanChart]: https://github.com/nxcc/cuegen-example-wekan
 [wekan]: https://wekan.github.io/
+
+### Generators
+Some "generators" are used (`generators_v0.cue`). The charts only define
+"incomplete" `Deployment`s which are "finalized" by "generators".
+
+*  `Deployment`: `spec.template.spec.volumes` is automatically added by looking
+   at `...volumeMounts`
+*  `PersistentVolumeClaim`s: automatically derived from `...volumeMounts/_pvc`
+   in `Deployments`
+* `Service`s: automatically derived from `...containers.ports` in `Deployments`
+* `Ingress`es: automatically derived from `...ports._ingress`
+
+Both charts define `_useGenerators: "v0"` as a "guard" which ensures that the
+same version of generator is used. This simple example will certainly not cover
+all usage scenarios, but it should show the power of creating k8s manifests with
+CUE.
