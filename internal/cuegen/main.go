@@ -17,7 +17,6 @@ package cuegen
 import (
 	"archive/zip"
 	"crypto/sha256"
-	_ "embed"
 	"encoding/base32"
 	"errors"
 	"fmt"

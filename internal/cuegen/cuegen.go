@@ -15,7 +15,6 @@
 package cuegen
 
 import (
-	_ "embed"
 	"encoding/json"
 	"errors"
 	"fmt"

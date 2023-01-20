@@ -17,8 +17,6 @@ package main
 import (
 	"os"
 
-	_ "embed"
-
 	"github.com/noris-network/cuegen/internal/app"
 )
 
