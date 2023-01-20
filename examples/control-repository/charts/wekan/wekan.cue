@@ -12,7 +12,7 @@ configMap: "wekan-env": data: {
 	MAIL_FROM: values.wekan.mailFrom
 }
 
-deployment: wekan: _useGenerator: "cuegen-example-v1"
+deployment: wekan: _enableGenerator: cuegenExampleV2: true
 deployment: wekan: spec: {
 	replicas: values.wekan.replicas
 	template: spec: {

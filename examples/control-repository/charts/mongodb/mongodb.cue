@@ -8,7 +8,7 @@ secret: "mongodb-auth": data: {
 	MONGODB_ROOT_PASSWORD:   '\(values.mongodb.auth.rootPassword)'
 }
 
-deployment: mongodb: _useGenerator: "cuegen-example-v1"
+deployment: mongodb: _enableGenerator: cuegenExampleV2: true
 deployment: mongodb: spec: {
 	strategy: type: "Recreate"
 	template: spec: {

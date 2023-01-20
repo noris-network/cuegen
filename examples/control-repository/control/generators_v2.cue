@@ -3,13 +3,11 @@ package kube
 //// Deployment ////////////////////////////////////////////////////////////////////////////////////
 
 // set default
-deployment: [string]: {
-	_useGenerator: *"none" | string
-}
+deployment: [string]: _enableGenerator: cuegenExampleV2: *false | bool
 
 // add volumes from volumeMounts
 deployment: [ID=_]: this={
-	if this._useGenerator == "cuegen-example-v1" {
+	if this._enableGenerator.cuegenExampleV2 {
 		spec: template: spec: {
 			volumes: [
 				for _, container in containers
@@ -77,7 +75,7 @@ ingress: {
 // create from _pvc in deployment.spec.template.spec.volumes.[*]
 persistentVolumeClaim: {
 	for _, deployment in deployment
-	if deployment._useGenerator == "cuegen-example-v1" {
+	if deployment._enableGenerator.cuegenExampleV2 {
 		if deployment.spec.template.spec.volumes != _|_
 		for _, volume in deployment.spec.template.spec.volumes {
 			if volume.persistentVolumeClaim != _|_ &&
@@ -101,7 +99,7 @@ persistentVolumeClaim: {
 service: {
 	for _, deploymentOrStatefulSet in [deployment, statefulSet]
 	for deploymentName, deployment in deploymentOrStatefulSet {
-		if deployment._useGenerator == "cuegen-example-v1" {
+		if deployment._enableGenerator.cuegenExampleV2 {
 			"\(deploymentName)": {
 				metadata: labels: deployment._labels
 				spec: {

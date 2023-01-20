@@ -106,10 +106,10 @@ the "prod" manifest, execute
 
 ### Generators
 "Generators" can be used to automatically modify or add resources. E.g.
-"cuegen-example-v1" (`generators_v1.cue`) is used in this example to "finalize"
+"cuegen-example-v1" (`generators_v2.cue`) is used in this example to "finalize"
 the "incomplete" `Deployment`s. With
 
-    deployment: mongodb: _useGenerator: "cuegen-example-v1"`
+    deployment: mongodb: _enableGenerator: cuegenExampleV2:: true
 
 the chart defines that the named generator should be applied. The generator will
 then modify the deployment and automatically add required resources.
@@ -123,5 +123,5 @@ then modify the deployment and automatically add required resources.
 
 
 It is best if all charts use a common generator, but through this approach it is
-possible to select other generators in case of incompatibilities. It also allows
-versioning.
+possible to select generators. It's even possible to let multiple generators work
+on a resource.
