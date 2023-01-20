@@ -105,8 +105,14 @@ the "prod" manifest, execute
 [wekan]: https://wekan.github.io/
 
 ### Generators
-Some "generators" are used (`generators_v0.cue`). The charts only define
-"incomplete" `Deployment`s which are "finalized" by "generators".
+"Generators" can be used to automatically modify or add resources. E.g.
+"cuegen-example-v1" (`generators_v1.cue`) is used in this example to "finalize"
+the "incomplete" `Deployment`s. With
+
+    deployment: mongodb: _useGenerator: "cuegen-example-v1"`
+
+the chart defines that the named generator should be applied. The generator will
+then modify the deployment and automatically add required resources.
 
 *  `Deployment`: `spec.template.spec.volumes` is automatically added by looking
    at `...volumeMounts`
@@ -115,7 +121,7 @@ Some "generators" are used (`generators_v0.cue`). The charts only define
 * `Service`s: automatically derived from `...containers.ports` in `Deployments`
 * `Ingress`es: automatically derived from `...ports._ingress`
 
-Both charts define `_useGenerators: "v0"` as a "guard" which ensures that the
-same version of generator is used. This simple example will certainly not cover
-all usage scenarios, but it should show the power of creating k8s manifests with
-CUE.
+
+It is best if all charts use a common generator, but through this approach it is
+possible to select other generators in case of incompatibilities. It also allows
+versioning.
