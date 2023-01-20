@@ -4,5 +4,5 @@ checkPaths:
   - values
   - global
 components:
-  - https://github.com/nxcc/cuegen-example-mongodb?ref=v1.0.0
-  - https://github.com/nxcc/cuegen-example-wekan?ref=v1.0.0
+  - https://github.com/nxcc/cuegen-example-mongodb?ref=v1.1.0
+  - https://github.com/nxcc/cuegen-example-wekan?ref=v1.1.0

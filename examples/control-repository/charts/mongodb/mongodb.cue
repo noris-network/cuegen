@@ -2,14 +2,13 @@ package kube
 
 values: {}
 
-_useGenerators: "v0"
-
 secret: "mongodb-auth": data: {
 	MONGODB_EXTRA_USERNAMES: '\(values.mongodb.auth.username)'
 	MONGODB_EXTRA_PASSWORDS: '\(values.mongodb.auth.password)'
 	MONGODB_ROOT_PASSWORD:   '\(values.mongodb.auth.rootPassword)'
 }
 
+deployment: mongodb: _useGenerator: "cuegen-example-v1"
 deployment: mongodb: spec: {
 	strategy: type: "Recreate"
 	template: spec: {

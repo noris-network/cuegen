@@ -2,8 +2,6 @@ package kube
 
 values: {}
 
-_useGenerators: "v0"
-
 secret: "wekan-auth": data: {
 	MONGO_URL: '\(values.wekan.mongodbURL)'
 }
@@ -14,6 +12,7 @@ configMap: "wekan-env": data: {
 	MAIL_FROM: values.wekan.mailFrom
 }
 
+deployment: wekan: _useGenerator: "cuegen-example-v1"
 deployment: wekan: spec: {
 	replicas: values.wekan.replicas
 	template: spec: {
