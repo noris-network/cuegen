@@ -25,6 +25,8 @@ jobs:
           VERSION: ${{ steps.get_version.outputs.VERSION }}
         run: |
           IMAGE=docker.io/${{ secrets.DOCKERHUB_USERNAME }}/${{ secrets.DOCKERHUB_REPOSITORY }}
+          echo version=$VERSION
+          cat docker/Dockerfile-cmp
           docker build . -t $IMAGE:$VERSION -t $IMAGE:latest -f docker/Dockerfile-cmp --build-arg $VERSION
           docker push $IMAGE:$VERSION
           docker push $IMAGE:latest
