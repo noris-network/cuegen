@@ -1,0 +1,30 @@
+name: Docker Image CI
+
+# on:
+#   push:
+#     branches: [main]
+
+jobs:
+  build-and-push-image:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Login to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - uses: actions/checkout@v3
+
+      - name: Get Version
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF##*/}" >> "${GITHUB_OUTPUT}"
+
+      - name: Build and push
+        env:
+          VERSION: ${{ steps.get_version.outputs.VERSION }}
+        run: |
+          IMAGE=docker.io/${{ secrets.DOCKERHUB_USERNAME }}/${{ secrets.DOCKERHUB_REPOSITORY }}
+          docker build . -t $IMAGE:$VERSION -t $IMAGE:latest -f docker/Dockerfile-cmp --build-arg $VERSION
+          docker push $IMAGE:$VERSION
+          docker push $IMAGE:latest

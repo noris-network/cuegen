@@ -1,0 +1,12 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ConfigManagementPlugin
+metadata:
+  name: cuegen
+spec:
+  version: VERSION
+  init:
+    command: ["/opt/bin/cuegen", "version"]
+  generate:
+    command: ["/opt/bin/cuegen", "."]
+  discover:
+    fileName: "cuegen.ya?ml"
