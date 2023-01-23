@@ -1,6 +1,8 @@
-[![Release Cuegen](https://github.com/noris-network/cuegen/actions/workflows/release.yaml/badge.svg)](https://github.com/noris-network/cuegen/actions/workflows/release.yaml)
-[![Go Report Card](https://goreportcard.com/badge/github.com/noris-network/cuegen)](https://goreportcard.com/report/github.com/noris-network/cuegen)
+[![release](https://img.shields.io/github/release/noris-network/cuegen.svg)](https://github.com/noris-network/cuegen/releases)
+[![release](https://github.com/noris-network/cuegen/actions/workflows/release.yaml/badge.svg)](https://github.com/noris-network/cuegen/actions/workflows/release.yaml)
 [![cmp plugin](https://github.com/noris-network/cuegen/actions/workflows/cmp-plugin.yaml/badge.svg)](https://github.com/noris-network/cuegen/actions/workflows/cmp-plugin.yaml)
+[![Go Report Card](https://goreportcard.com/badge/github.com/noris-network/cuegen)](https://goreportcard.com/report/github.com/noris-network/cuegen)
+[![downloads](https://img.shields.io/github/downloads/noris-network/cuegen/total.svg)](https://github.com/noris-network/cuegen/releases)
 
 # Cuegen
 
@@ -32,17 +34,11 @@ in this repository (in that order) are good starting points.*
   * Automatically decrypt [SOPS][SOPS]-encrypted data
 
 ## Install
-[![Releases](https://img.shields.io/github/release/noris-network/cuegen.svg)](https://github.com/noris-network/cuegen/releases)
-[![Releases](https://img.shields.io/github/downloads/noris-network/cuegen/total.svg)](https://github.com/noris-network/cuegen/releases)
-
 Download the [latest release][rel] or build with *go1.20rc3 or later*:
 
     go install github.com/noris-network/cuegen@latest
 
 To use cuegen as kustomize plugin, find instructions in the [kustomize example][kusteg].
-
-Cuegen can be used as [config management plugin][cmp] in ArgoCD. A container
-containing the `plugin.yaml` configuration [is available at docker hub][cuegen-cmp].
 
 
 ## Usage
@@ -54,6 +50,11 @@ Cuegen can be used stand-alone or as generator in [kustomize][kust]
     cuegen path/to/directory-containing-cuegen-dot-yaml
 
 Have a look at the [examples][eg] for some ready-to-run examples.
+
+Cuegen can be used as [config management plugin][cmp] in ArgoCD. A container
+with the [`plugin.yaml`](docker/plugin.yaml) configuration
+[is available at docker hub][cuegen-cmp]. The cuegen-cmp plugin container
+expects the cuegen config file to be named `cuegen.yaml`.
 
 ## Configuration
 A configuration file (preferred name: `cuegen.yaml`) is required to run `cuegen`.
