@@ -1,0 +1,10 @@
+FROM        golang:1.20rc3 as builder
+WORKDIR     /go/src/app
+ARG         VERSION
+COPY        . ./
+RUN         CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X 'main.build=$VERSION'" -o cuegen .
+RUN         sed "s/VERSION/$VERSION/g" docker/plugin.yaml > plugin.yaml
+
+FROM        gcr.io/distroless/static-debian11
+COPY        --from=builder /go/src/app/cuegen       /opt/bin/cuegen
+COPY        --from=builder /go/src/app/plugin.yaml  /home/argocd/cmp-server/config/plugin.yaml
