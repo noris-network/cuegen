@@ -1,5 +1,6 @@
 [![Release Cuegen](https://github.com/noris-network/cuegen/actions/workflows/release.yaml/badge.svg)](https://github.com/noris-network/cuegen/actions/workflows/release.yaml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/noris-network/cuegen)](https://goreportcard.com/report/github.com/noris-network/cuegen)
+[![cmp plugin](https://github.com/noris-network/cuegen/actions/workflows/cmp-plugin.yaml/badge.svg)](https://github.com/noris-network/cuegen/actions/workflows/cmp-plugin.yaml)
 
 # Cuegen
 
@@ -39,6 +40,10 @@ Download the [latest release][rel] or build with *go1.20rc3 or later*:
     go install github.com/noris-network/cuegen@latest
 
 To use cuegen as kustomize plugin, find instructions in the [kustomize example][kusteg].
+
+Cuegen can be used as [config management plugin][cmp] in ArgoCD. A container
+containing the `plugin.yaml` configuration [is available at docker hub][cuegen-cmp].
+
 
 ## Usage
 Cuegen can be used stand-alone or as generator in [kustomize][kust]
@@ -169,6 +174,7 @@ Load all files from directory `scripts` as key/values into `configMap.scripts.da
   * `v0.2.0` - Added checks when reading `cuegen.yaml`
   * `v0.2.1` - Improved error messages
   * `v0.3.0` - Added ability to read subpaths from git repos
+  * `v0.3.1` - No code changes, trigger cmp build
 
 [CUE]:         https://cuelang.org
 [SOPS]:        https://github.com/mozilla/sops
@@ -177,3 +183,5 @@ Load all files from directory `scripts` as key/values into `configMap.scripts.da
 [eg]:          examples/
 [rel]:         https://github.com/noris-network/cuegen/releases/latest
 [kusteg]:      examples/kustomize
+[cmp]:         https://argo-cd.readthedocs.io/en/stable/user-guide/config-management-plugins/#option-2-configure-plugin-via-sidecar
+[cuegen-cmp]:  https://hub.docker.com/r/nxcc/cuegen-cmp

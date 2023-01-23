@@ -9,4 +9,4 @@ spec:
   generate:
     command: ["/opt/bin/cuegen", "."]
   discover:
-    fileName: "cuegen.ya?ml"
+    fileName: "cuegen.yaml"
