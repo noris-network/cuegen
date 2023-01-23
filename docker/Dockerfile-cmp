@@ -7,5 +7,5 @@ RUN         sed "s/VERSION/$VERSION/g" docker/plugin.yaml > plugin.yaml
 
 #FROM        gcr.io/distroless/static-debian11
 FROM        alpine
-COPY        --from=buider /go/src/app/cuegen       /opt/bin/cuegen
-COPY        --from=buider /go/src/app/plugin.yaml  /home/argocd/cmp-server/config/plugin.yaml
+COPY        --from=builder /go/src/app/cuegen       /opt/bin/cuegen
+COPY        --from=builder /go/src/app/plugin.yaml  /home/argocd/cmp-server/config/plugin.yaml
