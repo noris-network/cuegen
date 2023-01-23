@@ -1,8 +1,9 @@
-name: Docker Image CI
+name: cmp plugin
 
 on:
   push:
-    branches: [add-cmp-plugin]
+    tags:
+      - "v*"
 
 jobs:
   build-and-push-image:
