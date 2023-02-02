@@ -93,6 +93,9 @@ Components can be
 > *Local paths are not restricted. As this could be a security problem,
 > this will change in a future release.*
 
+Environment variables in components are [expanded][expenv], that can be used to e.g.
+add authentication to git urls or prefix local paths.
+
 Example:
 
     components:
@@ -176,6 +179,7 @@ Load all files from directory `scripts` as key/values into `configMap.scripts.da
   * `v0.2.1` - Improved error messages
   * `v0.3.0` - Added ability to read subpaths from git repos
   * `v0.3.1` - No code changes, trigger cmp build
+  * `v0.3.2` - No code changes, bump go version to 1.20
 
 [CUE]:         https://cuelang.org
 [SOPS]:        https://github.com/mozilla/sops
@@ -186,3 +190,4 @@ Load all files from directory `scripts` as key/values into `configMap.scripts.da
 [kusteg]:      examples/kustomize
 [cmp]:         https://argo-cd.readthedocs.io/en/stable/user-guide/config-management-plugins/#option-2-configure-plugin-via-sidecar
 [cuegen-cmp]:  https://hub.docker.com/r/nxcc/cuegen-cmp
+[expenv]:      https://pkg.go.dev/os#ExpandEnv
