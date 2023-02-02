@@ -1,0 +1,20 @@
+### cmp-is-cuegen-dir.txtar
+
+# .cue
+cd $WORK/chart1
+exec cuegen -is-cuegen-dir
+stdout true
+
+# .yaml
+cd $WORK/chart2
+exec cuegen -is-cuegen-dir
+stdout true
+
+# .txt
+cd $WORK/chart3
+! exec cuegen -is-cuegen-dir
+stdout false
+
+-- chart1/cuegen.cue --
+-- chart2/cuegen.yaml --
+-- chart3/cuegen.txt --

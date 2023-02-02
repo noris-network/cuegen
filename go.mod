@@ -4,6 +4,7 @@ go 1.20
 
 require (
 	cuelang.org/go v0.5.0-beta.2
+	github.com/cue-exp/cueconfig v0.0.1
 	github.com/forensicanalysis/gitfs v0.2.1
 	github.com/go-git/go-git/v5 v5.5.2
 	github.com/joho/godotenv v1.4.0

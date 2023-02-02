@@ -15,23 +15,47 @@
 package app
 
 import (
+	_ "embed"
+	"errors"
+	"flag"
 	"fmt"
 	"log"
 	"os"
 	"path/filepath"
 
+	"github.com/cue-exp/cueconfig"
 	"github.com/noris-network/cuegen/internal/cuegen"
 	"gopkg.in/yaml.v3"
 )
 
-const defaultCuegenFile = "cuegen.yaml"
+const defaultYamlCuegenFile = "cuegen.yaml"
+const defaultCueCuegenFile = "cuegen.cue"
 
 var Build = ""
 var runningAsKustomizePlugin = os.Getenv("KUSTOMIZE_PLUGIN_CONFIG_ROOT") != ""
 
 func Main() int {
 
+	checkForCuegenDir := false
+
+	flag.BoolVar(&checkForCuegenDir, "is-cuegen-dir", false, "check current working directory for cuegen.{yaml,cue} (for cmp detection)")
+	flag.Parse()
+
 	log.SetFlags(0)
+
+	// detect cuegen directory (for cmp-plugin)
+	if checkForCuegenDir {
+		if _, err := os.Stat("cuegen.cue"); err == nil {
+			fmt.Println("true")
+			return 0
+		}
+		if _, err := os.Stat("cuegen.yaml"); err == nil {
+			fmt.Println("true")
+			return 0
+		}
+		fmt.Println("false")
+		return 1
+	}
 
 	// check args
 	if len(os.Args) == 2 && os.Args[1] == "version" {
@@ -87,14 +111,49 @@ func Main() int {
 
 // loadConfig loads the cuegen config. When a directory is passed, cuegen will
 // look for the default "cuegen.yaml" in that directory.
-func loadConfig(file string) (string, cuegen.Config, error) {
-	fileInfo, err := os.Stat(file)
+func loadConfig(path string) (string, cuegen.Config, error) {
+	file, err := func() (string, error) {
+		fileInfo, err := os.Stat(path)
+		if err != nil {
+			return "", fmt.Errorf("stat: %v", err)
+		}
+		if fileInfo.Mode().IsRegular() {
+			return path, nil
+		}
+		if fileInfo.IsDir() {
+			// cuegen.cue?
+			file := filepath.Join(path, defaultCueCuegenFile)
+			fileInfo, err := os.Stat(file)
+			if err == nil && fileInfo.Mode().IsRegular() {
+				return file, nil
+			}
+			// cuegen.yaml?
+			file = filepath.Join(path, defaultYamlCuegenFile)
+			fileInfo, err = os.Stat(file)
+			if err == nil && fileInfo.Mode().IsRegular() {
+				return file, nil
+			}
+		}
+		return "", fmt.Errorf("config %q not found", path)
+	}()
 	if err != nil {
 		return "", cuegen.Config{}, err
 	}
-	if fileInfo.IsDir() {
-		file = filepath.Join(file, defaultCuegenFile)
+	switch filepath.Ext(file) {
+	case ".cue":
+		return loadCueConfig(file)
+	case ".yml":
+		fallthrough
+	case ".yaml":
+		return loadYamlConfig(file)
+	default:
+		return "", cuegen.Config{}, errors.New("no config found")
 	}
+}
+
+// loadYamlConfig loads the cuegen config. When a directory is passed, cuegen will
+// look for the default "cuegen.yaml" in that directory.
+func loadYamlConfig(file string) (string, cuegen.Config, error) {
 	fh, err := os.Open(file)
 	if err != nil {
 		return "", cuegen.Config{}, err
@@ -106,4 +165,17 @@ func loadConfig(file string) (string, cuegen.Config, error) {
 		return "", cuegen.Config{}, err
 	}
 	return file, config, nil
+}
+
+//go:embed schema.cue
+var cuegenConfigSchema []byte
+
+// loadCueConfig loads the cuegen config. When a directory is passed, cuegen will
+// look for the default "cuegen.cue" in that directory.
+func loadCueConfig(file string) (string, cuegen.Config, error) {
+	config := struct{ Cuegen cuegen.Config }{}
+	if err := cueconfig.Load(file, cuegenConfigSchema, nil, nil, &config); err != nil {
+		return "", cuegen.Config{}, fmt.Errorf("load cue: %v", err)
+	}
+	return file, config.Cuegen, nil
 }
