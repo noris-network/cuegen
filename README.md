@@ -59,6 +59,11 @@ expects the cuegen config file to be named `cuegen.yaml`.
 ## Configuration
 A configuration file (preferred name: `cuegen.yaml`) is required to run `cuegen`.
 
+> The yaml configuration is a leftover from the use of cuegen as a kustomize plugin.
+  In the near future the configuration will be changed to use cue, for compatibility
+  reasons and to continue to work as a kustomize plugin the yaml format will still be
+  supported in the future.
+
     # (required) objects from this cue path will be dumped to YAML
     objectsPath: objects
 
