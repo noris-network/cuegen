@@ -23,6 +23,12 @@ jobs:
       - name: Run Tests
         run: go test ./tests
 
+      - name: Test Examples
+        run: |
+          go build -o cuegen .
+          export PATH=$PWD:$PATH
+          ./scripts/test-all-examples.sh
+
       - name: Run Goreleaser
         uses: goreleaser/goreleaser-action@v4
         with:

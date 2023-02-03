@@ -8,7 +8,7 @@ cd "$(dirname "$0")/../examples"
 export SOPS_AGE_KEY=AGE-SECRET-KEY-14QUHLE5A6UNSKNYXLF5ZA26P3NCFX8P68JQ066T7VJ6JW5G8FHWQN4HAUQ
 
 if [[ ! -f control-repository/control/demo.cue ]]; then
-    cp -v control-repository/control/demo.cue.template control-repository/control/demo.cue
+    cp control-repository/control/demo.cue.template control-repository/control/demo.cue
 fi
 
 trap "echo '  FAILED'" EXIT
