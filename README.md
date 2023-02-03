@@ -57,36 +57,25 @@ with the [`plugin.yaml`](docker/plugin.yaml) configuration
 expects the cuegen config file to be named `cuegen.yaml`.
 
 ## Configuration
-A configuration file (preferred name: `cuegen.yaml`) is required to run `cuegen`.
+A configuration file (preferred name: `cuegen.cue`, [schema][cfgschema]) is
+required to run `cuegen`. For backwards compatibility, and for `cuegen` to
+work as a kustomize plugin, the yaml format will still be supported in the future.
 
-> The yaml configuration is a leftover from the use of cuegen as a kustomize plugin.
-  In the near future the configuration will be changed to use cue, for compatibility
-  reasons and to continue to work as a kustomize plugin the yaml format will still be
-  supported in the future.
-
-    # (required) objects from this cue path will be dumped to YAML
-    objectsPath: objects
-
-    # (optional) all values in this path are checked to be concrete values
-    checkPath: values
-
-    # (optional) same as 'checkPath', in case more than one path needs to be
-    # checked. The 'objectsPath' with always be checked.
-    checkPaths:
-      - values
-      - morevalues
-
-    # (optional) values in this path are loaded as []byte. This will
-    # automatically base64 encode values when dumped to YAML
-    secretDataPath: secret.*.data
-
-    # (optional, default: false) print some info useful for debugging
-    debug: false
-
-    # (optional) merge cue files from these soures into the main entrypoint
-    components:
-      - component1
-      - component2
+    cuegen: {
+      objectsPath:    "objects"          // this will be dumped to YAML
+      secretDataPath: "secret.*.data"    // values matching this path will be loaded as []byte and
+                                         //     automatically be base64 encoded when dumped to YAML
+      checkPath:                         // this path is checked to contain only concrete values
+      checkPaths: [                      // when more than one path needs to be checked, the
+        "values",                        //     'objectsPath' with always be checked.
+        "global",
+      ]
+      components: [                      // merge cue files from these soures into the main entrypoint
+        "https://$GITLAB_TOKEN@gitlab.noris.net/mcs/components/cuegen/mongodb.git?ref=v6.0.4-mcs.1",
+        "https://$GITLAB_TOKEN@gitlab.noris.net/mcs/components/cuegen/wekan.git?ref=v6.71-mcs.0",
+      ]
+      debug: false                       // print some info useful for debugging
+    }
 
 ## Components
 Components can be
@@ -103,11 +92,12 @@ add authentication to git urls or prefix local paths.
 
 Example:
 
-    components:
-      - ../database-chart
-      - ../common-static-resources.zip
-      - https://github.com/nxcc/cuegen-test-chart-one?ref=v0.1.0
-      - https://github.com/noris-network/cuegen?ref=v0.2.1#examples/configmap
+    cuegen: components: [
+      "../database-chart",
+      "../common-static-resources.zip",
+      "https://github.com/nxcc/cuegen-test-chart-one?ref=v0.1.0",
+      "https://github.com/noris-network/cuegen?ref=v0.2.1#examples/configmap",
+    ]
 
 Because of the way CUE and cuegen work, all `*.cue` files need to be in the root
 of the components directory.
@@ -185,6 +175,7 @@ Load all files from directory `scripts` as key/values into `configMap.scripts.da
   * `v0.3.0` - Added ability to read subpaths from git repos
   * `v0.3.1` - No code changes, trigger cmp build
   * `v0.3.2` - No code changes, bump go version to 1.20
+  * `v0.4.0` - switch default config to `cuegen.cue`, use cue v0.5.0-beta5
 
 [CUE]:         https://cuelang.org
 [SOPS]:        https://github.com/mozilla/sops
@@ -196,3 +187,4 @@ Load all files from directory `scripts` as key/values into `configMap.scripts.da
 [cmp]:         https://argo-cd.readthedocs.io/en/stable/user-guide/config-management-plugins/#option-2-configure-plugin-via-sidecar
 [cuegen-cmp]:  https://hub.docker.com/r/nxcc/cuegen-cmp
 [expenv]:      https://pkg.go.dev/os#ExpandEnv
+[cfgschema]:   internal/app/schema.cue
