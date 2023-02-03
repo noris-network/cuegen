@@ -1,0 +1,51 @@
+### config-cue-yaml.txtar
+
+# config: config-objectsPath.txtar
+
+exec find
+
+# yaml dir
+exec cuegen yamldir
+stdout 'a: 1'
+
+# yaml file
+exec cuegen yamldir/cuegen2.yaml
+stdout 'a: 2'
+
+# cue dir
+exec cuegen cuedir
+stdout 'a: 2'
+
+# cue file
+exec cuegen cuedir/cuegen1.cue
+stdout 'a: 1'
+
+# txt file
+! exec cuegen cuedir/cuegen.txt
+stderr 'no config found'
+
+-- yamldir/cuegen.yaml --
+objectsPath: objects
+components: ["../comp1"]
+
+-- yamldir/cuegen2.yaml --
+objectsPath: objects
+components: ["../comp2"]
+
+-- cuedir/cuegen.cue --
+cuegen: objectsPath: "objects"
+cuegen: components: ["../comp2"]
+
+-- cuedir/cuegen1.cue --
+cuegen: objectsPath: "objects"
+cuegen: components: ["../comp1"]
+
+-- cuedir/cuegen.txt --
+
+-- comp1/a.cue --
+package kube
+objects:   [{ a: 1 }]
+
+-- comp2/a.cue --
+package kube
+objects:   [{ a: 2 }]
