@@ -17,7 +17,7 @@ jobs:
       - name: Run Tests
         run: go test ./tests
 
-      - name: Run Tests on Examples
+      - name: Test Examples
         run: |
           go build -o cuegen .
           export PATH=$PWD:$PATH

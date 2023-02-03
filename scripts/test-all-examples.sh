@@ -5,6 +5,8 @@ cd "$(dirname "$0")/../examples"
 
 # setup
 
+export SOPS_AGE_KEY=AGE-SECRET-KEY-14QUHLE5A6UNSKNYXLF5ZA26P3NCFX8P68JQ066T7VJ6JW5G8FHWQN4HAUQ
+
 if [[ ! -f control-repository/control/demo.cue ]]; then
     cp -v control-repository/control/demo.cue.template control-repository/control/demo.cue
 fi
@@ -22,8 +24,7 @@ cuegen values | grep -q "7 replicas configured"
 echo "  OK"
 
 echo encrypted...
-SOPS_AGE_KEY=AGE-SECRET-KEY-14QUHLE5A6UNSKNYXLF5ZA26P3NCFX8P68JQ066T7VJ6JW5G8FHWQN4HAUQ \
-    cuegen encrypted | grep -q IEtFWS0tLS0tCk1JSUV2Z0paTXF
+cuegen encrypted | grep -q IEtFWS0tLS0tCk1JSUV2Z0paTXF
 echo "  OK"
 
 echo control-repository
