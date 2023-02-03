@@ -12,8 +12,8 @@ stdout true
 
 # .txt
 cd $WORK/chart3
-! exec cuegen -is-cuegen-dir
-stdout false
+exec cuegen -is-cuegen-dir
+stdout '^$'
 
 -- chart1/cuegen.cue --
 -- chart2/cuegen.yaml --

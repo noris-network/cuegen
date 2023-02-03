@@ -4,9 +4,8 @@ metadata:
   name: cuegen
 spec:
   version: VERSION
-  init:
-    command: ["/opt/bin/cuegen", "version"]
   generate:
-    command: ["/opt/bin/cuegen", "."]
+    command: ["/bin/cuegen", "."]
   discover:
-    fileName: "cuegen.yaml"
+    find:
+      command: ["/bin/cuegen", "-is-cuegen-dir"]

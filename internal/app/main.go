@@ -53,8 +53,7 @@ func Main() int {
 			fmt.Println("true")
 			return 0
 		}
-		fmt.Println("false")
-		return 1
+		return 0
 	}
 
 	// check args
@@ -151,8 +150,7 @@ func loadConfig(path string) (string, cuegen.Config, error) {
 	}
 }
 
-// loadYamlConfig loads the cuegen config. When a directory is passed, cuegen will
-// look for the default "cuegen.yaml" in that directory.
+// loadYamlConfig loads the cuegen config
 func loadYamlConfig(file string) (string, cuegen.Config, error) {
 	fh, err := os.Open(file)
 	if err != nil {
@@ -170,8 +168,7 @@ func loadYamlConfig(file string) (string, cuegen.Config, error) {
 //go:embed schema.cue
 var cuegenConfigSchema []byte
 
-// loadCueConfig loads the cuegen config. When a directory is passed, cuegen will
-// look for the default "cuegen.cue" in that directory.
+// loadCueConfig loads the cuegen config
 func loadCueConfig(file string) (string, cuegen.Config, error) {
 	config := struct{ Cuegen cuegen.Config }{}
 	if err := cueconfig.Load(file, cuegenConfigSchema, nil, nil, &config); err != nil {
