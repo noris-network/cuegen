@@ -1,8 +1,8 @@
 cuegen: close({
 	objectsPath: string
 	checkPath:   *"" | string
-	checkPaths: [ ...string]
+	checkPaths?: [ ...string]
 	secretDataPath: *"" | string
 	debug:          *false | bool
-	components: [string, ...]
+	components?: [string, ...]
 })

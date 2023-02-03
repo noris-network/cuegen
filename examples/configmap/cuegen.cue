@@ -1,0 +1,1 @@
+cuegen: objectsPath: "objects"

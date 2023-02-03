@@ -1,0 +1,2 @@
+cuegen: objectsPath: "objects"
+components: []
