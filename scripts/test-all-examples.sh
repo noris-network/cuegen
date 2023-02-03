@@ -3,7 +3,15 @@
 set -euo pipefail
 cd "$(dirname "$0")/../examples"
 
+# setup
+
+if [[ ! -f control-repository/control/demo.cue ]]; then
+    cp -v control-repository/control/demo.cue.template control-repository/control/demo.cue
+fi
+
 trap "echo '  FAILED'" EXIT
+
+# run tests
 
 echo configmap...
 cuegen configmap | grep -q "2023-01-10T12:00:00Z"
@@ -23,6 +31,8 @@ cuegen control-repository/control/dev-cluster/wekan-dev/ | grep -q "namespace: c
 cuegen control-repository/control/prod-cluster/wekan-prod/ | grep -q "namespace: cuegen-demo-prod"
 cuegen control-repository/control/prod-cluster/wekan-qa/ | grep -q "namespace: cuegen-demo-qa"
 echo "  OK"
+
+# done
 
 trap "" EXIT
 echo "all tests successful"
