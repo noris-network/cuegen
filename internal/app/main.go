@@ -22,6 +22,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 
 	"github.com/cue-exp/cueconfig"
 	"github.com/noris-network/cuegen/internal/cuegen"
@@ -58,7 +59,17 @@ func Main() int {
 
 	// check args
 	if len(os.Args) == 2 && os.Args[1] == "version" {
-		fmt.Printf("cuegen %v\n", Build)
+		fmt.Printf("cuegen version %v\n", Build)
+		bi, ok := debug.ReadBuildInfo()
+		if !ok {
+			log.Fatalln("Failed to read build info")
+		}
+		for _, dep := range bi.Deps {
+			if dep.Path == "cuelang.org/go" {
+				fmt.Printf("cue version %v\n", dep.Version)
+				break
+			}
+		}
 		return 0
 	}
 	if len(os.Args) != 2 {
