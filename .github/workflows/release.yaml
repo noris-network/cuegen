@@ -28,6 +28,7 @@ jobs:
           go build -o cuegen .
           export PATH=$PWD:$PATH
           ./scripts/test-all-examples.sh
+          rm cuegen
 
       - name: Run Goreleaser
         uses: goreleaser/goreleaser-action@v4

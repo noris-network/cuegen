@@ -6,8 +6,10 @@ cd "$(dirname "$0")/../examples"
 # setup
 
 export SOPS_AGE_KEY=AGE-SECRET-KEY-14QUHLE5A6UNSKNYXLF5ZA26P3NCFX8P68JQ066T7VJ6JW5G8FHWQN4HAUQ
+cleanup_demo_cue=0
 
 if [[ ! -f control-repository/control/demo.cue ]]; then
+    cleanup_demo_cue=1
     cp control-repository/control/demo.cue.template control-repository/control/demo.cue
 fi
 
@@ -34,6 +36,10 @@ cuegen control-repository/control/prod-cluster/wekan-qa/ | grep -q "namespace: c
 echo "  OK"
 
 # done
+
+if [[ $cleanup_demo_cue == 1 ]]; then
+    rm control-repository/control/demo.cue
+fi
 
 trap "" EXIT
 echo "all tests successful"
