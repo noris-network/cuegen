@@ -176,6 +176,8 @@ Load all files from directory `scripts` as key/values into `configMap.scripts.da
   * `v0.3.1` - No code changes, trigger cmp build
   * `v0.3.2` - No code changes, bump go version to 1.20
   * `v0.4.0` - switch default config to `cuegen.cue`, use cue v0.5.0-beta5
+  * `v0.4.1` - Make components & checkPaths optional
+  * `v0.4.2` - downgrade cue to v0.5.0-beta.2 ([performance regression][gh2243])
 
 [CUE]:         https://cuelang.org
 [SOPS]:        https://github.com/mozilla/sops
@@ -188,3 +190,4 @@ Load all files from directory `scripts` as key/values into `configMap.scripts.da
 [cuegen-cmp]:  https://hub.docker.com/r/nxcc/cuegen-cmp
 [expenv]:      https://pkg.go.dev/os#ExpandEnv
 [cfgschema]:   internal/app/schema.cue
+[gh2243]:      https://github.com/cue-lang/cue/issues/2243
