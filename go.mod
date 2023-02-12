@@ -7,7 +7,7 @@ require (
 	github.com/cue-exp/cueconfig v0.0.1
 	github.com/forensicanalysis/gitfs v0.2.1
 	github.com/go-git/go-git/v5 v5.5.2
-	github.com/joho/godotenv v1.5.0
+	github.com/joho/godotenv v1.5.1
 	github.com/rogpeppe/go-internal v1.9.0
 	go.mozilla.org/sops/v3 v3.7.3
 	golang.org/x/exp v0.0.0-20230202163644-54bba9f4231b
