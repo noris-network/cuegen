@@ -13,7 +13,7 @@ if [[ ! -f control-repository/control/demo.cue ]]; then
     cp control-repository/control/demo.cue.template control-repository/control/demo.cue
 fi
 
-trap "echo '  FAILED'" EXIT
+trap 'echo "  FAILED"; rm -rf ${tempdir:-/tmp/noSuchDir1234}' EXIT
 
 # run tests
 
@@ -35,11 +35,21 @@ cuegen control-repository/control/prod-cluster/wekan-prod/ | grep -q "namespace:
 cuegen control-repository/control/prod-cluster/wekan-qa/ | grep -q "namespace: cuegen-demo-qa"
 echo "  OK"
 
+# echo kustomize plugin
+tempdir=$(mktemp -d)
+XDG_CONFIG_HOME=$tempdir
+export XDG_CONFIG_HOME
+cuegen_dir="$XDG_CONFIG_HOME/kustomize/plugin/noris.net/mcs/v1beta1/cuegen"
+mkdir -p "$cuegen_dir"
+cp "$(command -v cuegen)" "$cuegen_dir/Cuegen"
+kustomize build --enable-alpha-plugins kustomize | grep -q "Hello from kustomize"
+echo "  OK"
+
 # done
 
 if [[ $cleanup_demo_cue == 1 ]]; then
     rm control-repository/control/demo.cue
 fi
 
-trap "" EXIT
+trap 'rm -rf ${tempdir:-/tmp/noSuchDir1234}' EXIT
 echo "all tests successful"

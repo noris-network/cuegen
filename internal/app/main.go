@@ -149,16 +149,17 @@ func loadConfig(path string) (string, cuegen.Config, error) {
 	if err != nil {
 		return "", cuegen.Config{}, err
 	}
-	switch filepath.Ext(file) {
-	case ".cue":
-		return loadCueConfig(file)
-	case ".yml":
-		fallthrough
-	case ".yaml":
-		return loadYamlConfig(file)
-	default:
-		return "", cuegen.Config{}, errors.New("no config found")
+	if err != nil {
+		return "", cuegen.Config{}, err
 	}
+	ext := filepath.Ext(file)
+	if ext == ".cue" {
+		return loadCueConfig(file)
+	}
+	if ext == ".yml" || ext == ".yaml" || runningAsKustomizePlugin {
+		return loadYamlConfig(file)
+	}
+	return "", cuegen.Config{}, errors.New("no config found")
 }
 
 // loadYamlConfig loads the cuegen config
