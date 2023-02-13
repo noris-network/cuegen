@@ -12,7 +12,7 @@ stderr 'invalid character ''='' looking for beginning of value'
 # @read(env)
 exec sed -i s/json/env/ chart/a.cue
 ! exec cuegen chart
-stderr 'Can''t separate key from value'
+stderr 'unexpected character'
 
 
 -- chart/cuegen.yaml --
