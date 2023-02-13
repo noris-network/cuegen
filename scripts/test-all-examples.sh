@@ -35,7 +35,7 @@ cuegen control-repository/control/prod-cluster/wekan-prod/ | grep -q "namespace:
 cuegen control-repository/control/prod-cluster/wekan-qa/ | grep -q "namespace: cuegen-demo-qa"
 echo "  OK"
 
-# echo kustomize plugin
+echo kustomize plugin
 tempdir=$(mktemp -d)
 XDG_CONFIG_HOME=$tempdir
 export XDG_CONFIG_HOME
