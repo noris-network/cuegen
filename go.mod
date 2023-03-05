@@ -6,7 +6,7 @@ require (
 	cuelang.org/go v0.5.0-beta.2
 	github.com/cue-exp/cueconfig v0.0.1
 	github.com/forensicanalysis/gitfs v0.2.1
-	github.com/go-git/go-git/v5 v5.5.2
+	github.com/go-git/go-git/v5 v5.6.0
 	github.com/joho/godotenv v1.5.1
 	github.com/rogpeppe/go-internal v1.9.0
 	go.mozilla.org/sops/v3 v3.7.3
@@ -89,7 +89,7 @@ require (
 	github.com/mpvl/unique v0.0.0-20150818121801-cbe035fff7de // indirect
 	github.com/oklog/run v1.1.0 // indirect
 	github.com/pierrec/lz4 v2.6.1+incompatible // indirect
-	github.com/pjbgf/sha1cd v0.2.3 // indirect
+	github.com/pjbgf/sha1cd v0.3.0 // indirect
 	github.com/pkg/diff v0.0.0-20210226163009-20ebb0f2a09e // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/protocolbuffers/txtpbfmt v0.0.0-20230130173531-76f626137dc9 // indirect
