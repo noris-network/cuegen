@@ -93,6 +93,7 @@ repositories via Http url, `CUEGEN_HTTP_USERNAME` and `CUEGEN_HTTP_PASSWORD` can
 also be set in the environment.
 
 Components Example:
+
     cuegen: components: [
       "../database-chart",
       "../common-static-resources.zip",
