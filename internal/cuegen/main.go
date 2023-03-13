@@ -28,6 +28,7 @@ import (
 	"github.com/forensicanalysis/gitfs"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/go-git/go-git/v5/plumbing/transport/http"
 )
 
 type Config struct {
@@ -102,7 +103,7 @@ func (cg Cuegen) getComponents(componentPaths []string) (Components, error) {
 		component := Component{Path: componentPath, ID: generateID(componentPath)}
 		switch {
 
-		case strings.HasPrefix(componentPath, "http://") || strings.HasPrefix(componentPath, "https://"):
+		case strings.HasPrefix(componentPath, "http://") || strings.HasPrefix(componentPath, "https://") || strings.HasPrefix(componentPath, "git@"):
 			gitfs, err := getGitFS(componentPath)
 			if err != nil {
 				return nil, fmt.Errorf("getComponents: %v", err)
@@ -143,24 +144,22 @@ func generateID(name string) string {
 
 // getGitFS returns a fs.FS from the given git repository URL
 func getGitFS(component string) (fs.FS, error) {
-	u, err := url.Parse(component)
+	uri, ref, subDir, err := parseGitURL(component)
 	if err != nil {
-		return nil, fmt.Errorf("getGitFS: parse url: %v", err)
+		return nil, fmt.Errorf("getGitURL: open: %v", err)
 	}
-	q := u.Query()
-	if len(q) > 1 {
-		return nil, fmt.Errorf("getGitFS: too many parameters: %v", err)
-	}
-	subDir := u.Fragment
-	u.Fragment = ""
-	u.RawQuery = ""
+
 	opts := git.CloneOptions{
-		URL: os.ExpandEnv(u.String()),
+		URL: os.ExpandEnv(uri),
 	}
-	ref := q.Get("ref")
-	if len(q) == 1 && ref == "" {
-		return nil, errors.New("getGitFS: only parameter ref supported %v")
+
+	if os.Getenv("CUEGEN_HTTP_USERNAME") != "" && os.Getenv("CUEGEN_HTTP_PASSWORD") != "" {
+		opts.Auth = &http.BasicAuth{
+			Username: os.Getenv("CUEGEN_HTTP_USERNAME"),
+			Password: os.Getenv("CUEGEN_HTTP_PASSWORD"),
+		}
 	}
+
 	fsys, err := func(ref string) (*gitfs.GitFS, error) {
 		if ref != "" {
 			// tag?
@@ -178,7 +177,7 @@ func getGitFS(component string) (fs.FS, error) {
 		}
 		fsys, err := gitfs.NewWithOptions(&opts)
 		if err != nil {
-			return nil, fmt.Errorf("getGitFS: %v", err)
+			return nil, err
 		}
 		return fsys, nil
 	}(ref)
@@ -226,4 +225,37 @@ func getZipFS(zipfile string) (fs.FS, error) {
 		return nil, fmt.Errorf("getZipFS: sub: %v", err)
 	}
 	return subfs, nil
+}
+
+func parseGitURL(component string) (uri, ref, frag string, err error) {
+	isSshURL := false
+
+	if strings.HasPrefix(component, "git@") {
+		component = strings.TrimPrefix(component, "git@")
+		isSshURL = true
+	}
+	u, err := url.Parse(component)
+	if err != nil {
+		return "", "", "", fmt.Errorf("parse url: %v", err)
+	}
+
+	q := u.Query()
+	if len(q) > 1 {
+		return "", "", "", fmt.Errorf("component url: too many parameters: %v", err)
+	}
+
+	ref = q.Get("ref")
+	if len(q) == 1 && ref == "" {
+		return "", "", "", errors.New("getGitFS: only parameter ref supported %v")
+	}
+	u.RawQuery = ""
+
+	frag = u.Fragment
+	u.Fragment = ""
+
+	uri = u.String()
+	if isSshURL {
+		uri = "git@" + uri
+	}
+	return
 }

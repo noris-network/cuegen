@@ -87,11 +87,12 @@ Components can be
 > *Local paths are not restricted. As this could be a security problem,
 > this will change in a future release.*
 
-Environment variables in components are [expanded][expenv], that can be used to e.g.
-add authentication to git urls or prefix local paths.
+Environment variables in components are [expanded][expenv], that can be used to
+e.g. add authentication to git urls or prefix local paths. For cloning private
+repositories via Http url, `CUEGEN_HTTP_USERNAME` and `CUEGEN_HTTP_PASSWORD` can
+also be set in the environment.
 
-Example:
-
+Components Example:
     cuegen: components: [
       "../database-chart",
       "../common-static-resources.zip",
@@ -178,6 +179,8 @@ Load all files from directory `scripts` as key/values into `configMap.scripts.da
   * `v0.4.0` - switch default config to `cuegen.cue`, use cue v0.5.0-beta5
   * `v0.4.1` - Make components & checkPaths optional
   * `v0.4.2` - downgrade cue to v0.5.0-beta.2 ([performance regression][gh2243])
+  * `v0.4.3` - fix running as kustomize plugin
+  * `v0.4.4` - improve handling of git urls
 
 [CUE]:         https://cuelang.org
 [SOPS]:        https://github.com/mozilla/sops
