@@ -8,7 +8,7 @@ require (
 	github.com/forensicanalysis/gitfs v0.2.1
 	github.com/go-git/go-git/v5 v5.5.2
 	github.com/joho/godotenv v1.5.1
-	github.com/rogpeppe/go-internal v1.9.0
+	github.com/rogpeppe/go-internal v1.10.0
 	go.mozilla.org/sops/v3 v3.7.3
 	golang.org/x/exp v0.0.0-20230202163644-54bba9f4231b
 	gopkg.in/yaml.v3 v3.0.1
@@ -90,7 +90,6 @@ require (
 	github.com/oklog/run v1.1.0 // indirect
 	github.com/pierrec/lz4 v2.6.1+incompatible // indirect
 	github.com/pjbgf/sha1cd v0.2.3 // indirect
-	github.com/pkg/diff v0.0.0-20210226163009-20ebb0f2a09e // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/protocolbuffers/txtpbfmt v0.0.0-20230130173531-76f626137dc9 // indirect
 	github.com/ryanuber/go-glob v1.0.0 // indirect
