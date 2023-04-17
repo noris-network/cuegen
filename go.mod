@@ -8,7 +8,7 @@ require (
 	github.com/forensicanalysis/gitfs v0.2.1
 	github.com/go-git/go-git/v5 v5.6.1
 	github.com/joho/godotenv v1.5.1
-	github.com/rogpeppe/go-internal v1.9.0
+	github.com/rogpeppe/go-internal v1.10.0
 	go.mozilla.org/sops/v3 v3.7.3
 	golang.org/x/exp v0.0.0-20230202163644-54bba9f4231b
 	gopkg.in/yaml.v3 v3.0.1
