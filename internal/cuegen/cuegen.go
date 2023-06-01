@@ -218,6 +218,9 @@ func (cg Cuegen) buildLoadConfig() (*load.Config, error) {
 				if !entry.Type().IsRegular() {
 					return nil
 				}
+				if strings.HasPrefix(filename, ".git/") {
+					return nil
+				}
 				if strings.HasSuffix(filename, ".cue") {
 					data, err := fs.ReadFile(component.Filesystem, filename)
 					if err != nil {
