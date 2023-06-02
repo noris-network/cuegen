@@ -1,5 +1,5 @@
 cuegen: close({
-	objectsPath: string
+	objectsPath: *"" | string
 	checkPath:   *"" | string
 	checkPaths?: [ ...string]
 	secretDataPath: *"" | string

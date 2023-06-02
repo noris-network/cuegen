@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"log"
 	"net/url"
 	"os"
 	"strings"
@@ -66,6 +67,18 @@ type Cuegen struct {
 
 // Exec initializes the Cuegen struct and executes cuegen
 func Exec(config Config) error {
+
+	// apply preferred defaults when all required fields are empty
+	if config.ObjectsPath == "" &&
+		config.SecretDataPath == "" &&
+		config.CheckPath == "" && len(config.CheckPaths) == 0 {
+		if config.Debug {
+			log.Println("applying preferred defaults for ObjectsPath, SecretDataPath, and CheckPaths")
+		}
+		config.ObjectsPath = "objects"
+		config.SecretDataPath = "secret.*.data"
+		config.CheckPaths = []string{"values", "global"}
+	}
 
 	cg := Cuegen{
 		Debug:          config.Debug,
