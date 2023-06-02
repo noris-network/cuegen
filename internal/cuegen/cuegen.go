@@ -126,7 +126,8 @@ func (cg Cuegen) Exec() error {
 		for _, checkPath := range cg.CheckPaths {
 			values := value.LookupPath(cue.ParsePath(checkPath))
 			if values.Err() != nil {
-				return fmt.Errorf("checkPath: %v", values.Err())
+				// skip empty checkPath
+				continue
 			}
 			values.Walk(func(v cue.Value) bool {
 				defaultValue, _ := v.Default()

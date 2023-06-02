@@ -17,7 +17,7 @@ stdout 'c: d'
 stderr 'loadconfig: EOF'
 
 -- chart/cuegen1.yaml --
-debug: false
+secretDataPath: dummy
 
 -- chart/cuegen2.yaml --
 objectsPath: objects

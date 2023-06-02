@@ -23,8 +23,6 @@ debug: false
 -- chart2/a.cue --
 package kube
 
-values: {}
-global: {}
 objects: [ secret ]
 
 secret: a: data: {} @readmap(dir)
