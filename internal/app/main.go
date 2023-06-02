@@ -19,6 +19,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"path/filepath"
@@ -172,6 +173,9 @@ func loadYamlConfig(file string) (string, cuegen.Config, error) {
 	decoder := yaml.NewDecoder(fh)
 	decoder.KnownFields(true)
 	if err := decoder.Decode(&config); err != nil {
+		if errors.Is(err, io.EOF) {
+			return file, cuegen.Config{}, nil
+		}
 		return "", cuegen.Config{}, err
 	}
 	return file, config, nil

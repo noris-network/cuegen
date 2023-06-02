@@ -13,8 +13,8 @@ exec cuegen chart/cuegen3.yaml
 stdout 'c: d'
 
 # config: no objectsPath
-! exec cuegen chart/cuegen4.yaml
-stderr 'loadconfig: EOF'
+! exec cuegen chart/cuegen1.yaml
+stderr 'objectsPath is not set'
 
 -- chart/cuegen1.yaml --
 secretDataPath: dummy
@@ -24,8 +24,6 @@ objectsPath: objects
 
 -- chart/cuegen3.yaml --
 objectsPath: otherPath
-
--- chart/cuegen4.yaml --
 
 -- chart/a.cue --
 package kube
