@@ -227,10 +227,14 @@ func (cg Cuegen) buildLoadConfig() (*load.Config, error) {
 					if err != nil {
 						return err
 					}
-					path := filepath.Join(cg.ChartRoot, fmt.Sprintf(overlayFmt, filesystemID, filename))
+					overlayFilename := fmt.Sprintf(overlayFmt, filesystemID, filename)
+					path := filepath.Join(cg.ChartRoot, overlayFilename)
 					overlay[path] = load.FromBytes(data)
 					if cg.Debug {
 						log.Printf("        * %v -> %v", filename, path)
+					}
+					if cg.DumpOverlays {
+						os.WriteFile(overlayFilename, data, 0644)
 					}
 				} else {
 					if cg.Debug {

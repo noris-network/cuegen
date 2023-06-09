@@ -75,6 +75,7 @@ work as a kustomize plugin, the yaml format will still be supported in the futur
         "https://$GITLAB_TOKEN@gitlab.noris.net/mcs/components/cuegen/wekan.git?ref=v6.71-mcs.0",
       ]
       debug: false                       // print some info useful for debugging
+      dumpOverlays: false                // dump overlays for debugging
     }
 
 ## Components

@@ -40,6 +40,7 @@ type Config struct {
 	} `yaml:"metadata"`
 	Components     []string `yaml:"components"`
 	Debug          bool     `yaml:"debug"`
+	DumpOverlays   bool     `yaml:"dumpOverlays"`
 	ObjectsPath    string   `yaml:"objectsPath"`
 	SecretDataPath string   `yaml:"secretDataPath"`
 	ChartRoot      string
@@ -63,6 +64,7 @@ type Cuegen struct {
 	SecretDataPath string
 	CheckPaths     []string
 	ChartRoot      string
+	DumpOverlays   bool
 }
 
 // Exec initializes the Cuegen struct and executes cuegen
@@ -85,6 +87,7 @@ func Exec(config Config) error {
 		ObjectsPath:    config.ObjectsPath,
 		ChartRoot:      config.ChartRoot,
 		SecretDataPath: config.SecretDataPath,
+		DumpOverlays:   config.DumpOverlays,
 	}
 
 	if config.CheckPath != "" {
