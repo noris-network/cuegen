@@ -183,6 +183,9 @@ Load all files from directory `scripts` as key/values into `configMap.scripts.da
   * `v0.4.2` - downgrade cue to v0.5.0-beta.2 ([performance regression][gh2243])
   * `v0.4.3` - fix running as kustomize plugin
   * `v0.4.4` - improve handling of git urls
+  * `v0.5.0` - add cuegen default config
+  * `v0.6.0` - add dumpOverlays option
+  * `v0.7.0` - upgrade cue to v0.5.0 (many fixes, rare performance regression still present)
 
 [CUE]:         https://cuelang.org
 [SOPS]:        https://github.com/mozilla/sops
