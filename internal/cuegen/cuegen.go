@@ -317,6 +317,7 @@ func (cg Cuegen) processAttributes(value cue.Value, attrs pathValueAttributes) (
 // one newline is a the end of the file. The updated cue.Value is then returned.
 func (cg Cuegen) attrReadFile(value cue.Value, path string, attr cue.Attribute, component Component) (cue.Value, error) {
 	alldata := ""
+	bytesFlag := ""
 	for i := 0; i < attr.NumArgs(); i++ {
 		file, flag := attr.Arg(i)
 		data, err := cg.readFile(component, file)
@@ -328,11 +329,18 @@ func (cg Cuegen) attrReadFile(value cue.Value, path string, attr cue.Attribute, 
 			alldata = alldata + strings.TrimRight(data, "\n") + "\n"
 		case "trim":
 			alldata = alldata + strings.TrimSpace(data)
+		case "bytes":
+			bytesFlag = flag
+			fallthrough
 		default:
 			alldata = alldata + data
 		}
 	}
-	value = value.FillPath(cue.ParsePath(path), alldata)
+	if cg.asBytes(path, bytesFlag) {
+		value = value.FillPath(cue.ParsePath(path), []byte(alldata))
+	} else {
+		value = value.FillPath(cue.ParsePath(path), alldata)
+	}
 	return value, nil
 }
 
@@ -361,25 +369,11 @@ func (cg Cuegen) attrReadMap(value cue.Value, cuePath string, attr cue.Attribute
 		if err != nil {
 			return value, fmt.Errorf("attrRead: %v", err)
 		}
-		secretPathItems := strings.Split(cg.SecretDataPath, ".")
-		pathItems := strings.Split(cuePath, ".")
-		asBytes := true
-		if len(secretPathItems) > len(pathItems) {
-			asBytes = false
-		}
-		if asBytes && suffix != "bytes" {
-			for n, key := range secretPathItems {
-				if key != "*" && key != pathItems[n] {
-					asBytes = false
-					break
-				}
-			}
-		}
 		for k, v := range data {
 			pathItems := cue.ParsePath(fmt.Sprintf("%v.%q", cuePath, k))
 			switch stringValue := v.(type) {
 			case string:
-				if asBytes {
+				if cg.asBytes(cuePath, suffix) {
 					value = value.FillPath(pathItems, []byte(stringValue))
 				} else {
 					value = value.FillPath(pathItems, stringValue)
@@ -390,6 +384,24 @@ func (cg Cuegen) attrReadMap(value cue.Value, cuePath string, attr cue.Attribute
 		}
 	}
 	return value, nil
+}
+
+func (cg Cuegen) asBytes(cuePath, suffix string) bool {
+	secretPathItems := strings.Split(cg.SecretDataPath, ".")
+	pathItems := strings.Split(cuePath, ".")
+	asBytes := true
+	if len(secretPathItems) > len(pathItems) {
+		asBytes = false
+	}
+	if asBytes && suffix != "bytes" {
+		for n, key := range secretPathItems {
+			if key != "*" && key != pathItems[n] {
+				asBytes = false
+				break
+			}
+		}
+	}
+	return asBytes
 }
 
 // readPath checks the given path, when it points to a directory all regular files

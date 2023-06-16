@@ -186,6 +186,7 @@ Load all files from directory `scripts` as key/values into `configMap.scripts.da
   * `v0.5.0` - add cuegen default config
   * `v0.6.0` - add dumpOverlays option
   * `v0.7.0` - upgrade cue to v0.5.0 (many fixes, rare performance regression still present)
+  * `v0.7.1` - fix secret handling of @readfile
 
 [CUE]:         https://cuelang.org
 [SOPS]:        https://github.com/mozilla/sops
