@@ -2,7 +2,7 @@
 
 # @readfile(no-such-file)
 ! exec cuegen chart
-stderr 'file ".+" not found inside working directory'
+stderr 'no such file or directory'
 
 -- chart/cuegen.yaml --
 objectsPath: objects

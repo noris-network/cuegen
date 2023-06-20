@@ -488,21 +488,6 @@ func (cg Cuegen) readFile(component Component, file string) (string, error) {
 		log.Printf("    * readFile:   %v", file)
 	}
 
-	inputFile := file
-	if component.ID == localFilesystem {
-		found := false
-		filepath.WalkDir(".", func(path string, d fs.DirEntry, err error) error {
-			if path == inputFile {
-				found = true
-				return filepath.SkipAll
-			}
-			return nil
-		})
-		if !found {
-			return "", fmt.Errorf("readFile: file %q not found inside working directory", inputFile)
-		}
-	}
-
 	// read file from the component's filesystem
 	data, err := fs.ReadFile(component.Filesystem, file)
 	if err != nil {
