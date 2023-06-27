@@ -20,10 +20,12 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"io/fs"
 	"log"
 	"os"
 	"path/filepath"
 	"runtime/debug"
+	"strings"
 
 	"github.com/cue-exp/cueconfig"
 	"github.com/noris-network/cuegen/internal/cuegen"
@@ -123,8 +125,25 @@ func Main() int {
 // loadConfig loads the cuegen config. When a directory is passed, cuegen will
 // look for the default "cuegen.yaml" in that directory.
 func loadConfig(path string) (string, cuegen.Config, error) {
+
+	var rootfs fs.FS
+
+	if strings.HasPrefix(path, "https://") {
+		gitfs, err := cuegen.GetGitFS(path)
+		if err != nil {
+			return "", cuegen.Config{}, fmt.Errorf("in loadConfig: %v", err)
+		}
+		rootfs = gitfs
+		path = "."
+	} else {
+		rootfs = os.DirFS(".")
+	}
+
+	println("AAAAAAAAAAAAA")
+
+	////////////////
 	file, err := func() (string, error) {
-		fileInfo, err := os.Stat(path)
+		fileInfo, err := fs.Stat(rootfs, path)
 		if err != nil {
 			return "", fmt.Errorf("stat: %v", err)
 		}
@@ -134,19 +153,20 @@ func loadConfig(path string) (string, cuegen.Config, error) {
 		if fileInfo.IsDir() {
 			// cuegen.cue?
 			file := filepath.Join(path, defaultCueCuegenFile)
-			fileInfo, err := os.Stat(file)
+			fileInfo, err := fs.Stat(rootfs, file)
 			if err == nil && fileInfo.Mode().IsRegular() {
 				return file, nil
 			}
 			// cuegen.yaml?
 			file = filepath.Join(path, defaultYamlCuegenFile)
-			fileInfo, err = os.Stat(file)
+			fileInfo, err = fs.Stat(rootfs, file)
 			if err == nil && fileInfo.Mode().IsRegular() {
 				return file, nil
 			}
 		}
 		return "", fmt.Errorf("config %q not found", path)
 	}()
+	println("BBBBBBBBBBB")
 	if err != nil {
 		return "", cuegen.Config{}, err
 	}
@@ -155,7 +175,7 @@ func loadConfig(path string) (string, cuegen.Config, error) {
 	}
 	ext := filepath.Ext(file)
 	if ext == ".cue" {
-		return loadCueConfig(file)
+		return loadCueConfig(rootfs, file)
 	}
 	if ext == ".yml" || ext == ".yaml" || runningAsKustomizePlugin {
 		return loadYamlConfig(file)
@@ -185,8 +205,10 @@ func loadYamlConfig(file string) (string, cuegen.Config, error) {
 var cuegenConfigSchema []byte
 
 // loadCueConfig loads the cuegen config
-func loadCueConfig(file string) (string, cuegen.Config, error) {
+func loadCueConfig(fsys fs.FS, file string) (string, cuegen.Config, error) {
 	config := struct{ Cuegen cuegen.Config }{}
+	cueconfig.
+
 	if err := cueconfig.Load(file, cuegenConfigSchema, nil, nil, &config); err != nil {
 		return "", cuegen.Config{}, fmt.Errorf("load cue: %v", err)
 	}

@@ -115,6 +115,9 @@ func Exec(config Config) error {
 // getComponents loads components from the given paths
 func (cg Cuegen) getComponents(componentPaths []string) (Components, error) {
 	components := Components{}
+
+	// refactor: .....
+
 	for _, componentPath := range componentPaths {
 		component := Component{Path: componentPath, ID: generateID(componentPath)}
 		switch {
@@ -156,6 +159,11 @@ func (cg Cuegen) getComponents(componentPaths []string) (Components, error) {
 func generateID(name string) string {
 	bs := sha256.Sum256([]byte(name))
 	return base32.StdEncoding.EncodeToString(bs[:])[:10]
+}
+
+// dev... does this work
+func GetGitFS(component string) (fs.FS, error) {
+	return getGitFS(component)
 }
 
 // getGitFS returns a fs.FS from the given git repository URL
