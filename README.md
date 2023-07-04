@@ -80,11 +80,11 @@ be supported in the future.
 ## Environment Variables
 Some environment variables can help working with cuegen:
 
-    CUEGEN_HTTP_USERNAME      username for git authentication
-    CUEGEN_HTTP_PASSWORD      password for git authentication
-    SOPS_AGE_KEY              age key for decryption of files
-    SOPS_AGE_KEY_FILE         age key file for decryption of files
     CUEGEN_DEBUG              turn on debug output with "true"
+    CUEGEN_HTTP_PASSWORD      password for git authentication
+    CUEGEN_HTTP_USERNAME      username for git authentication
+    SOPS_AGE_KEY              age key for decryption
+    SOPS_AGE_KEY_FILE         age key file for decryption
 
 ## Components
 Components can be
