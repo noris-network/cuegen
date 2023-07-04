@@ -1,0 +1,32 @@
+### remote-root.txtar
+
+# remote
+exec cuegen https://github.com/nxcc/cuegen-remote-test.git
+cmp stdout expect1
+
+# remote with subpath and ref
+exec cuegen 'https://github.com/nxcc/cuegen-remote-test.git?ref=subpath#apps/app_a'
+cmp stdout expect2
+
+# remote with subpath, ref and cuegen.yaml
+exec cuegen 'https://github.com/nxcc/cuegen-remote-test.git?ref=subpath#apps/app_b'
+cmp stdout expect3
+
+-- expect1 --
+data:
+  field1: test text 123
+  field2: value is 'some value'
+metadata:
+  name: myconfig
+-- expect2 --
+data:
+  field1: test text 1234
+  field2: value is 'app-a'
+metadata:
+  name: myconfig
+-- expect3 --
+data:
+  field1: test yaml 5678
+  field2: value is 'app-b'
+metadata:
+  name: myconfig

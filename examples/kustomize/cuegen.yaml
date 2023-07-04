@@ -1,8 +1,0 @@
-## kustomize plugin header
-apiVersion: noris.net/mcs/v1beta1
-kind: Cuegen
-metadata:
-  name: some-non-empty-value-required-by-kustomize
-
-## regular cuegen config
-objectsPath: objects

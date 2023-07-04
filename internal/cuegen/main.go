@@ -46,6 +46,7 @@ type Config struct {
 	ChartRoot      string
 	CheckPath      string   `yaml:"checkPath"`
 	CheckPaths     []string `yaml:"checkPaths"`
+	RootFS         *fs.FS
 }
 
 type Component struct {
@@ -65,10 +66,15 @@ type Cuegen struct {
 	CheckPaths     []string
 	ChartRoot      string
 	DumpOverlays   bool
+	RootFS         *fs.FS
 }
 
 // Exec initializes the Cuegen struct and executes cuegen
 func Exec(config Config) error {
+
+	if os.Getenv("CUEGEN_DEBUG") == "true" {
+		config.Debug = true
+	}
 
 	// apply preferred defaults when all required fields are empty
 	if config.ObjectsPath == "" &&
@@ -88,6 +94,7 @@ func Exec(config Config) error {
 		ChartRoot:      config.ChartRoot,
 		SecretDataPath: config.SecretDataPath,
 		DumpOverlays:   config.DumpOverlays,
+		RootFS:         config.RootFS,
 	}
 
 	if config.CheckPath != "" {
@@ -104,6 +111,13 @@ func Exec(config Config) error {
 		return fmt.Errorf("Exec: %v", err)
 	}
 	cg.Components = components
+
+	if cg.RootFS != nil {
+		cg.Components["remoteRootFS"] = Component{
+			Filesystem: *cg.RootFS,
+			Type:       "remoterootfs",
+		}
+	}
 
 	if cg.Debug {
 		cg.PrintConfig()
@@ -123,7 +137,7 @@ func (cg Cuegen) getComponents(componentPaths []string) (Components, error) {
 		switch {
 
 		case strings.HasPrefix(componentPath, "http://") || strings.HasPrefix(componentPath, "https://") || strings.HasPrefix(componentPath, "git@"):
-			gitfs, err := getGitFS(componentPath)
+			gitfs, err := GetGitFS(componentPath)
 			if err != nil {
 				return nil, fmt.Errorf("getComponents: %v", err)
 			}
@@ -161,16 +175,11 @@ func generateID(name string) string {
 	return base32.StdEncoding.EncodeToString(bs[:])[:10]
 }
 
-// dev... does this work
+// GetGitFS returns a fs.FS from the given git repository URL
 func GetGitFS(component string) (fs.FS, error) {
-	return getGitFS(component)
-}
-
-// getGitFS returns a fs.FS from the given git repository URL
-func getGitFS(component string) (fs.FS, error) {
 	uri, ref, subDir, err := parseGitURL(component)
 	if err != nil {
-		return nil, fmt.Errorf("getGitURL: open: %v", err)
+		return nil, fmt.Errorf("GetGitURL: open: %v", err)
 	}
 
 	opts := git.CloneOptions{

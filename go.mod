@@ -4,10 +4,10 @@ go 1.20
 
 require (
 	cuelang.org/go v0.5.0
-	github.com/cue-exp/cueconfig v0.0.1
 	github.com/forensicanalysis/gitfs v0.2.1
 	github.com/go-git/go-git/v5 v5.7.0
 	github.com/joho/godotenv v1.5.1
+	github.com/nxcc/cueconfig v0.0.1
 	github.com/rogpeppe/go-internal v1.10.0
 	go.mozilla.org/sops/v3 v3.7.3
 	golang.org/x/exp v0.0.0-20230202163644-54bba9f4231b

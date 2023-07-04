@@ -35,14 +35,9 @@ cuegen control-repository/control/prod-cluster/wekan-prod/ | grep -q "namespace:
 cuegen control-repository/control/prod-cluster/wekan-qa/ | grep -q "namespace: cuegen-demo-qa"
 echo "  OK"
 
-echo kustomize plugin
-tempdir=$(mktemp -d)
-XDG_CONFIG_HOME=$tempdir
-export XDG_CONFIG_HOME
-cuegen_dir="$XDG_CONFIG_HOME/kustomize/plugin/noris.net/mcs/v1beta1/cuegen"
-mkdir -p "$cuegen_dir"
-cp "$(command -v cuegen)" "$cuegen_dir/Cuegen"
-kustomize build --enable-alpha-plugins kustomize | grep -q "Hello from kustomize"
+echo remote
+cuegen https://github.com/nxcc/cuegen-remote-test.git | grep -q 'field1: test text 123'
+cuegen "https://github.com/nxcc/cuegen-remote-test.git?ref=subpath#apps/app_b" | grep -q 'field1: test yaml 5678'
 echo "  OK"
 
 # done
