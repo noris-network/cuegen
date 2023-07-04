@@ -20,13 +20,15 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"io/fs"
 	"log"
 	"os"
 	"path/filepath"
 	"runtime/debug"
+	"strings"
 
-	"github.com/cue-exp/cueconfig"
 	"github.com/noris-network/cuegen/internal/cuegen"
+	"github.com/nxcc/cueconfig"
 	"gopkg.in/yaml.v3"
 )
 
@@ -34,7 +36,6 @@ const defaultYamlCuegenFile = "cuegen.yaml"
 const defaultCueCuegenFile = "cuegen.cue"
 
 var Build = ""
-var runningAsKustomizePlugin = os.Getenv("KUSTOMIZE_PLUGIN_CONFIG_ROOT") != ""
 
 func Main() int {
 
@@ -92,16 +93,7 @@ func Main() int {
 	}
 
 	// setup paths
-	chartRoot := ""
-	if runningAsKustomizePlugin {
-		cwd, err := os.Getwd()
-		if err != nil {
-			log.Fatalf("getwd: %v", err)
-		}
-		chartRoot = cwd
-	} else {
-		chartRoot = filepath.Dir(configFile)
-	}
+	chartRoot := filepath.Dir(configFile)
 
 	chartRoot, err = filepath.Abs(chartRoot)
 	if err != nil {
@@ -123,8 +115,24 @@ func Main() int {
 // loadConfig loads the cuegen config. When a directory is passed, cuegen will
 // look for the default "cuegen.yaml" in that directory.
 func loadConfig(path string) (string, cuegen.Config, error) {
+
+	var rootfs fs.FS
+
+	if strings.HasPrefix(path, "http://") || strings.HasPrefix(path, "https://") {
+		path = os.ExpandEnv(path)
+		gitfs, err := cuegen.GetGitFS(path)
+		if err != nil {
+			return "", cuegen.Config{}, fmt.Errorf("in loadConfig: %v", err)
+		}
+		rootfs = gitfs
+		path = "."
+	} else {
+		rootfs = os.DirFS(".")
+		path = strings.TrimRight(path, "/")
+	}
+
 	file, err := func() (string, error) {
-		fileInfo, err := os.Stat(path)
+		fileInfo, err := fs.Stat(rootfs, path)
 		if err != nil {
 			return "", fmt.Errorf("stat: %v", err)
 		}
@@ -134,13 +142,13 @@ func loadConfig(path string) (string, cuegen.Config, error) {
 		if fileInfo.IsDir() {
 			// cuegen.cue?
 			file := filepath.Join(path, defaultCueCuegenFile)
-			fileInfo, err := os.Stat(file)
+			fileInfo, err := fs.Stat(rootfs, file)
 			if err == nil && fileInfo.Mode().IsRegular() {
 				return file, nil
 			}
 			// cuegen.yaml?
 			file = filepath.Join(path, defaultYamlCuegenFile)
-			fileInfo, err = os.Stat(file)
+			fileInfo, err = fs.Stat(rootfs, file)
 			if err == nil && fileInfo.Mode().IsRegular() {
 				return file, nil
 			}
@@ -155,17 +163,17 @@ func loadConfig(path string) (string, cuegen.Config, error) {
 	}
 	ext := filepath.Ext(file)
 	if ext == ".cue" {
-		return loadCueConfig(file)
+		return loadCueConfig(rootfs, file)
 	}
-	if ext == ".yml" || ext == ".yaml" || runningAsKustomizePlugin {
-		return loadYamlConfig(file)
+	if ext == ".yml" || ext == ".yaml" {
+		return loadYamlConfig(rootfs, file)
 	}
 	return "", cuegen.Config{}, errors.New("no config found")
 }
 
 // loadYamlConfig loads the cuegen config
-func loadYamlConfig(file string) (string, cuegen.Config, error) {
-	fh, err := os.Open(file)
+func loadYamlConfig(fsys fs.FS, file string) (string, cuegen.Config, error) {
+	fh, err := fsys.Open(file)
 	if err != nil {
 		return "", cuegen.Config{}, err
 	}
@@ -174,10 +182,11 @@ func loadYamlConfig(file string) (string, cuegen.Config, error) {
 	decoder.KnownFields(true)
 	if err := decoder.Decode(&config); err != nil {
 		if errors.Is(err, io.EOF) {
-			return file, cuegen.Config{}, nil
+			return file, cuegen.Config{RootFS: &fsys}, nil
 		}
 		return "", cuegen.Config{}, err
 	}
+	config.RootFS = &fsys
 	return file, config, nil
 }
 
@@ -185,10 +194,11 @@ func loadYamlConfig(file string) (string, cuegen.Config, error) {
 var cuegenConfigSchema []byte
 
 // loadCueConfig loads the cuegen config
-func loadCueConfig(file string) (string, cuegen.Config, error) {
+func loadCueConfig(fsys fs.FS, file string) (string, cuegen.Config, error) {
 	config := struct{ Cuegen cuegen.Config }{}
-	if err := cueconfig.Load(file, cuegenConfigSchema, nil, nil, &config); err != nil {
+	if err := cueconfig.LoadFS(fsys, file, cuegenConfigSchema, nil, nil, &config); err != nil {
 		return "", cuegen.Config{}, fmt.Errorf("load cue: %v", err)
 	}
+	config.Cuegen.RootFS = &fsys
 	return file, config.Cuegen, nil
 }

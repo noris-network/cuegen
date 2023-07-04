@@ -32,22 +32,21 @@ in this repository (in that order) are good starting points.*
   * Load whole directories as key/values data at once, e.g. into a ConfigMap
   * Load structured data (JSON/YAML/env) into a CUE struct
   * Automatically decrypt [SOPS][SOPS]-encrypted data
+  * Load remote charts
 
 ## Install
 Download the [latest release][rel] or build with *go1.20rc3 or later*:
 
     go install github.com/noris-network/cuegen@latest
 
-To use cuegen as kustomize plugin, find instructions in the [kustomize example][kusteg].
-
 
 ## Usage
-Cuegen can be used stand-alone or as generator in [kustomize][kust]
-(see [example](examples/kustomize/)).
 
     cuegen path/to/cuegen.yaml
     # or
     cuegen path/to/directory-containing-cuegen-dot-yaml
+    # or
+    cuegen https://git.example.com/deployments/myapp.git
 
 Have a look at the [examples][eg] for some ready-to-run examples.
 
@@ -58,8 +57,8 @@ expects the cuegen config file to be named `cuegen.yaml`.
 
 ## Configuration
 A configuration file (preferred name: `cuegen.cue`, [schema][cfgschema]) is
-required to run `cuegen`. For backwards compatibility, and for `cuegen` to
-work as a kustomize plugin, the yaml format will still be supported in the future.
+required to run `cuegen`. For backwards compatibility the yaml format will still
+be supported in the future.
 
     cuegen: {
       objectsPath:    "objects"          // this will be dumped to YAML
@@ -77,6 +76,15 @@ work as a kustomize plugin, the yaml format will still be supported in the futur
       debug: false                       // print some info useful for debugging
       dumpOverlays: false                // dump overlays for debugging
     }
+
+## Environment Variables
+Some environment variables can help working with cuegen:
+
+    CUEGEN_HTTP_USERNAME      username for git authentication
+    CUEGEN_HTTP_PASSWORD      password for git authentication
+    SOPS_AGE_KEY              age key for decryption of files
+    SOPS_AGE_KEY_FILE         age key file for decryption of files
+    CUEGEN_DEBUG              turn on debug output with "true"
 
 ## Components
 Components can be
@@ -187,14 +195,14 @@ Load all files from directory `scripts` as key/values into `configMap.scripts.da
   * `v0.6.0` - add dumpOverlays option
   * `v0.7.0` - upgrade cue to v0.5.0 (many fixes, rare performance regression still present)
   * `v0.7.1` - fix secret handling of @readfile
+  * `v0.7.2` - internal cleanup
+  * `v0.8.0` - allow remote cuegen directories, rm kustomize plugin support
 
 [CUE]:         https://cuelang.org
 [SOPS]:        https://github.com/mozilla/sops
-[kust]:        https://kustomize.io/
 [k8stut]:      https://cuelang.org/docs/tutorials/
 [eg]:          examples/
 [rel]:         https://github.com/noris-network/cuegen/releases/latest
-[kusteg]:      examples/kustomize
 [cmp]:         https://argo-cd.readthedocs.io/en/stable/user-guide/config-management-plugins/#option-2-configure-plugin-via-sidecar
 [cuegen-cmp]:  https://hub.docker.com/r/nxcc/cuegen-cmp
 [expenv]:      https://pkg.go.dev/os#ExpandEnv
