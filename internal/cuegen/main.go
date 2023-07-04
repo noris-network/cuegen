@@ -130,8 +130,6 @@ func Exec(config Config) error {
 func (cg Cuegen) getComponents(componentPaths []string) (Components, error) {
 	components := Components{}
 
-	// refactor: .....
-
 	for _, componentPath := range componentPaths {
 		component := Component{Path: componentPath, ID: generateID(componentPath)}
 		switch {
