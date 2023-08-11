@@ -197,6 +197,7 @@ Load all files from directory `scripts` as key/values into `configMap.scripts.da
   * `v0.7.1` - fix secret handling of @readfile
   * `v0.7.2` - internal cleanup
   * `v0.8.0` - allow remote cuegen directories, rm kustomize plugin support
+  * `v0.9.0` - upgrade cue to v0.6.0
 
 [CUE]:         https://cuelang.org
 [SOPS]:        https://github.com/mozilla/sops

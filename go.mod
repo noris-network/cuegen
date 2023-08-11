@@ -3,7 +3,7 @@ module github.com/noris-network/cuegen
 go 1.20
 
 require (
-	cuelang.org/go v0.5.0
+	cuelang.org/go v0.6.0
 	github.com/forensicanalysis/gitfs v0.2.1
 	github.com/go-git/go-git/v5 v5.8.1
 	github.com/joho/godotenv v1.5.1
@@ -39,7 +39,7 @@ require (
 	github.com/blang/semver v3.5.1+incompatible // indirect
 	github.com/cenkalti/backoff/v3 v3.2.2 // indirect
 	github.com/cloudflare/circl v1.3.3 // indirect
-	github.com/cockroachdb/apd/v2 v2.0.2 // indirect
+	github.com/cockroachdb/apd/v3 v3.2.0 // indirect
 	github.com/dimchansky/utfbom v1.1.1 // indirect
 	github.com/emicklei/proto v1.11.1 // indirect
 	github.com/emirpasic/gods v1.18.1 // indirect
@@ -91,7 +91,7 @@ require (
 	github.com/pierrec/lz4 v2.6.1+incompatible // indirect
 	github.com/pjbgf/sha1cd v0.3.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
-	github.com/protocolbuffers/txtpbfmt v0.0.0-20230130173531-76f626137dc9 // indirect
+	github.com/protocolbuffers/txtpbfmt v0.0.0-20230328191034-3462fbc510c0 // indirect
 	github.com/ryanuber/go-glob v1.0.0 // indirect
 	github.com/sergi/go-diff v1.3.1 // indirect
 	github.com/sirupsen/logrus v1.9.0 // indirect
@@ -108,7 +108,7 @@ require (
 	golang.org/x/term v0.10.0 // indirect
 	golang.org/x/text v0.11.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
-	golang.org/x/tools v0.6.0 // indirect
+	golang.org/x/tools v0.7.0 // indirect
 	google.golang.org/api v0.109.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20230202175211-008b39050e57 // indirect
