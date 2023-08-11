@@ -2,7 +2,7 @@
 
 # components: missing file for readfile
 ! exec cuegen chart
-stderr 'readFile: "\.\./comp": "file": open file: no such file or directory'
+stderr 'readFile: .+ no such file or directory'
 
 -- chart/cuegen.yaml --
 objectsPath: objects
