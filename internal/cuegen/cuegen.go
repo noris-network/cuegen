@@ -21,6 +21,7 @@ import (
 	"io/fs"
 	"log"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -175,7 +176,25 @@ func (cg Cuegen) Exec() error {
 		return fmt.Errorf("Exec: marshal stream: %v", err)
 	}
 
-	fmt.Print(noBinaryPrefix(yamlString))
+	fixedYamlString := noBinaryPrefix(yamlString)
+
+	// filter output thru yq -P
+	yqPp := os.Getenv("YQ_PRETTYPRINT")
+	if yqPp != "" {
+		yqBin := "yq"
+		if strings.HasPrefix(yqPp, "/") {
+			yqBin = yqPp
+		}
+		cmd := exec.Command(yqBin, "-P")
+		cmd.Stdin = strings.NewReader(fixedYamlString)
+		cmd.Stdout = os.Stdout
+		err := cmd.Run()
+		if err != nil {
+			return err
+		}
+	} else {
+		fmt.Print(fixedYamlString)
+	}
 
 	return nil
 }

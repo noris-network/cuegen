@@ -85,6 +85,8 @@ Some environment variables can help working with cuegen:
     CUEGEN_HTTP_USERNAME      username for git authentication
     SOPS_AGE_KEY              age key for decryption
     SOPS_AGE_KEY_FILE         age key file for decryption
+    YQ_PRETTYPRINT            !="": run yaml output thru `yq -P`
+                              starting with `/`: use as path to yq
 
 ## Components
 Components can be
@@ -179,32 +181,33 @@ Load all files from directory `scripts` as key/values into `configMap.scripts.da
 
 ## Changelog
 
-  * `v0.1.0` - Initial release
-  * `v0.1.1` - Improved attribute lookup
-  * `v0.2.0` - Added checks when reading `cuegen.yaml`
-  * `v0.2.1` - Improved error messages
-  * `v0.3.0` - Added ability to read subpaths from git repos
-  * `v0.3.1` - No code changes, trigger cmp build
-  * `v0.3.2` - No code changes, bump go version to 1.20
-  * `v0.4.0` - switch default config to `cuegen.cue`, use cue v0.5.0-beta5
-  * `v0.4.1` - Make components & checkPaths optional
-  * `v0.4.2` - downgrade cue to v0.5.0-beta.2 ([performance regression][gh2243])
-  * `v0.4.3` - fix running as kustomize plugin
-  * `v0.4.4` - improve handling of git urls
-  * `v0.5.0` - add cuegen default config
-  * `v0.6.0` - add dumpOverlays option
-  * `v0.7.0` - upgrade cue to v0.5.0 (many fixes, rare performance regression still present)
-  * `v0.7.1` - fix secret handling of @readfile
-  * `v0.7.2` - internal cleanup
-  * `v0.8.0` - allow remote cuegen directories, rm kustomize plugin support
-  * `v0.9.0` - upgrade cue to v0.6.0
+  * `v0.1.0`  - Initial release
+  * `v0.1.1`  - Improved attribute lookup
+  * `v0.2.0`  - Added checks when reading `cuegen.yaml`
+  * `v0.2.1`  - Improved error messages
+  * `v0.3.0`  - Added ability to read subpaths from git repos
+  * `v0.3.1`  - No code changes, trigger cmp build
+  * `v0.3.2`  - No code changes, bump go version to 1.20
+  * `v0.4.0`  - switch default config to `cuegen.cue`, use cue v0.5.0-beta5
+  * `v0.4.1`  - Make components & checkPaths optional
+  * `v0.4.2`  - downgrade cue to v0.5.0-beta.2 ([performance regression][gh2243])
+  * `v0.4.3`  - fix running as kustomize plugin
+  * `v0.4.4`  - improve handling of git urls
+  * `v0.5.0`  - add cuegen default config
+  * `v0.6.0`  - add dumpOverlays option
+  * `v0.7.0`  - upgrade cue to v0.5.0 (many fixes, rare performance regression still present)
+  * `v0.7.1`  - fix secret handling of @readfile
+  * `v0.7.2`  - internal cleanup
+  * `v0.8.0`  - allow remote cuegen directories, rm kustomize plugin support
+  * `v0.9.0`  - upgrade cue to v0.6.0
+  * `v0.10.0` - add YQ_PRETTYPRINT to filter output thru `yq -P``
 
 [CUE]:         https://cuelang.org
 [SOPS]:        https://github.com/mozilla/sops
 [k8stut]:      https://cuelang.org/docs/tutorials/
 [eg]:          examples/
 [rel]:         https://github.com/noris-network/cuegen/releases/latest
-[cmp]:         https://argo-cd.readthedocs.io/en/stable/user-guide/config-management-plugins/#option-2-configure-plugin-via-sidecar
+[cmp]:         https://argo-cd.readthedocs.io/en/stable/operator-manual/config-management-plugins/#sidecar-plugin
 [cuegen-cmp]:  https://hub.docker.com/r/nxcc/cuegen-cmp
 [expenv]:      https://pkg.go.dev/os#ExpandEnv
 [cfgschema]:   internal/app/schema.cue
