@@ -74,7 +74,6 @@ be supported in the future.
         "https://$GITLAB_TOKEN@gitlab.noris.net/mcs/components/cuegen/wekan.git?ref=v6.71-mcs.0",
       ]
       debug: false                       // print some info useful for debugging
-      dumpOverlays: false                // dump overlays for debugging
     }
 
 ## Environment Variables
@@ -83,6 +82,7 @@ Some environment variables can help working with cuegen:
     CUEGEN_DEBUG              turn on debug output with "true"
     CUEGEN_HTTP_PASSWORD      password for git authentication
     CUEGEN_HTTP_USERNAME      username for git authentication
+    DUMP_OVERLAYS_TO          directory to dump overlays to (debug only)
     SOPS_AGE_KEY              age key for decryption
     SOPS_AGE_KEY_FILE         age key file for decryption
     YQ_PRETTYPRINT            !="": run yaml output thru `yq -P`
@@ -200,7 +200,8 @@ Load all files from directory `scripts` as key/values into `configMap.scripts.da
   * `v0.7.2`  - internal cleanup
   * `v0.8.0`  - allow remote cuegen directories, rm kustomize plugin support
   * `v0.9.0`  - upgrade cue to v0.6.0
-  * `v0.10.0` - add YQ_PRETTYPRINT to filter output thru `yq -P`
+  * `v0.10.0` - add `YQ_PRETTYPRINT` to filter output thru `yq -P`
+  * `v0.11.0` - add `DUMP_OVERLAYS_TO` to dump overlays to directory (debug)
 
 [CUE]:         https://cuelang.org
 [SOPS]:        https://github.com/mozilla/sops

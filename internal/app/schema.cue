@@ -4,6 +4,5 @@ cuegen: close({
 	checkPaths?: [ ...string]
 	secretDataPath: *"" | string
 	debug:          *false | bool
-	dumpOverlays:   *false | bool
 	components?: [string, ...]
 })

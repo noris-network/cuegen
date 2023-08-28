@@ -252,8 +252,13 @@ func (cg Cuegen) buildLoadConfig() (*load.Config, error) {
 					if cg.Debug {
 						log.Printf("        * %v -> %v", filename, path)
 					}
-					if cg.DumpOverlays {
-						os.WriteFile(overlayFilename, data, 0644)
+					if cg.DumpOverlaysTo != "" {
+						path := filepath.Join(cg.DumpOverlaysTo, overlayFilename)
+						err := os.WriteFile(path, data, 0644)
+						if err != nil {
+							return err
+						}
+						fmt.Printf(">>> dumped overlay to %v\n", overlayFilename)
 					}
 				} else {
 					if cg.Debug {

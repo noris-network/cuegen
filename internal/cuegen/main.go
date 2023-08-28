@@ -40,7 +40,6 @@ type Config struct {
 	} `yaml:"metadata"`
 	Components     []string `yaml:"components"`
 	Debug          bool     `yaml:"debug"`
-	DumpOverlays   bool     `yaml:"dumpOverlays"`
 	ObjectsPath    string   `yaml:"objectsPath"`
 	SecretDataPath string   `yaml:"secretDataPath"`
 	ChartRoot      string
@@ -65,7 +64,7 @@ type Cuegen struct {
 	SecretDataPath string
 	CheckPaths     []string
 	ChartRoot      string
-	DumpOverlays   bool
+	DumpOverlaysTo string
 	RootFS         *fs.FS
 }
 
@@ -93,8 +92,14 @@ func Exec(config Config) error {
 		ObjectsPath:    config.ObjectsPath,
 		ChartRoot:      config.ChartRoot,
 		SecretDataPath: config.SecretDataPath,
-		DumpOverlays:   config.DumpOverlays,
 		RootFS:         config.RootFS,
+	}
+
+	if dumpDir := os.Getenv("DUMP_OVERLAYS_TO"); dumpDir != "" && strings.HasPrefix(dumpDir, "/") {
+		if _, err := os.Stat(dumpDir); err != nil {
+			return fmt.Errorf("Exec: DUMP_OVERLAYS_TO: %v", err)
+		}
+		cg.DumpOverlaysTo = dumpDir
 	}
 
 	if config.CheckPath != "" {

@@ -1,15 +1,17 @@
 ### components-dump.txtar
 
 # components: dump overlays
-exec cuegen chart
-exec find
-stdout overlay-ORBY4AOZPH--a.cue
-stdout overlay-CUUTIGWCVW--b.cue
-cmp chart/overlay-ORBY4AOZPH--a.cue comp_a/a.cue
-cmp chart/overlay-CUUTIGWCVW--b.cue comp_b/b.cue
+
+exec mkdir OUT
+exec bash '-c' 'DUMP_OVERLAYS_TO=$WORK/OUT cuegen chart'
+stdout 'dumped overlay to overlay-CUUTIGWCVW--b.cue'
+stdout 'dumped overlay to overlay-remoteRootFS--a.cue'
+stdout 'dumped overlay to overlay-ORBY4AOZPH--a.cue'
+
+cmp OUT/overlay-ORBY4AOZPH--a.cue comp_a/a.cue
+cmp OUT/overlay-CUUTIGWCVW--b.cue comp_b/b.cue
 
 -- chart/cuegen.yaml --
-dumpOverlays: true
 components:
     - ../comp_a
     - ../comp_b
