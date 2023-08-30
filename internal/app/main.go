@@ -113,7 +113,7 @@ func Main() int {
 }
 
 // loadConfig loads the cuegen config. When a directory is passed, cuegen will
-// look for the default "cuegen.yaml" in that directory.
+// look for the default "cuegen.{cue,yaml}" in that directory.
 func loadConfig(path string) (string, cuegen.Config, error) {
 
 	var rootfs fs.FS
