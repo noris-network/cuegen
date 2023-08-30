@@ -132,6 +132,7 @@ func loadConfig(path string) (string, cuegen.Config, error) {
 	}
 
 	file, err := func() (string, error) {
+		path = strings.TrimPrefix(path, "./")
 		fileInfo, err := fs.Stat(rootfs, path)
 		if err != nil {
 			return "", fmt.Errorf("stat: %v", err)
