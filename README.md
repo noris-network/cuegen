@@ -202,6 +202,7 @@ Load all files from directory `scripts` as key/values into `configMap.scripts.da
   * `v0.9.0`  - upgrade cue to v0.6.0
   * `v0.10.0` - add `YQ_PRETTYPRINT` to filter output thru `yq -P`
   * `v0.11.0` - add `DUMP_OVERLAYS_TO` to dump overlays to directory (debug)
+  * `v0.11.1` - upgrade sops
 
 [CUE]:         https://cuelang.org
 [SOPS]:        https://github.com/mozilla/sops
