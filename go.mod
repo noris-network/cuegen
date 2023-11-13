@@ -6,7 +6,7 @@ require (
 	cuelang.org/go v0.6.0
 	github.com/forensicanalysis/gitfs v0.2.1
 	github.com/getsops/sops/v3 v3.8.1
-	github.com/go-git/go-git/v5 v5.9.0
+	github.com/go-git/go-git/v5 v5.10.0
 	github.com/joho/godotenv v1.5.1
 	github.com/nxcc/cueconfig v0.0.1
 	github.com/rogpeppe/go-internal v1.11.0
