@@ -18,13 +18,22 @@ controlled by attributes.
 in this repository (in that order) are good starting points.*
 
 ## Table of Contents
-  * [Features](#features)
-  * [Install](#install)
-  * [Usage](#Usage)
-  * [Configuration](#configuration)
-  * [Components](#components)
-  * [Attributes](#attributes)
-  * [Changelog](#changelog)
+- [Cuegen](#cuegen)
+  - [Table of Contents](#table-of-contents)
+  - [Features](#features)
+  - [Install](#install)
+  - [Usage](#usage)
+  - [Configuration](#configuration)
+  - [Environment Variables](#environment-variables)
+  - [Components](#components)
+  - [Attributes](#attributes)
+    - [Attribute "@readfile"](#attribute-readfile)
+    - [Attribute "@readmap"](#attribute-readmap)
+    - [Attribute "@read"](#attribute-read)
+      - [with file Attribute value](#with-file-attribute-value)
+      - [with directory Attribute value](#with-directory-attribute-value)
+  - [Order Workaround](#order-workaround)
+  - [Changelog](#changelog)
 
 ## Features
   * Compose manifests from various, versioned sources (local directories, git-repositories)
@@ -178,6 +187,8 @@ Load all files from directory `scripts` as key/values into `configMap.scripts.da
 	    data: {} @read(scripts)
     }
 
+## Order Workaround
+Until [issue 2555][issue2555] is resolved in CUE, there is a [temporary workaround](examples/workaround/).
 
 ## Changelog
 
@@ -203,6 +214,7 @@ Load all files from directory `scripts` as key/values into `configMap.scripts.da
   * `v0.10.0` - add `YQ_PRETTYPRINT` to filter output thru `yq -P`
   * `v0.11.0` - add `DUMP_OVERLAYS_TO` to dump overlays to directory (debug)
   * `v0.11.1` - upgrade sops
+  * `v0.12.0` - add workaround for file order bug
 
 [CUE]:         https://cuelang.org
 [SOPS]:        https://github.com/mozilla/sops
@@ -214,3 +226,4 @@ Load all files from directory `scripts` as key/values into `configMap.scripts.da
 [expenv]:      https://pkg.go.dev/os#ExpandEnv
 [cfgschema]:   internal/app/schema.cue
 [gh2243]:      https://github.com/cue-lang/cue/issues/2243
+[issue2555]:   https://github.com/cue-lang/cue/issues/2555

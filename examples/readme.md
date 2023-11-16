@@ -7,6 +7,7 @@
 * [control-repository](control-repository): full example how to install several
   instances of an application in various environments
 * [remote](remote): render chart from remote repository
+* [workaround](workaround): workaround file order bug in cue
 
 To run these examples, put `cuegen` into your `PATH` and execute
 

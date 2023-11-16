@@ -46,6 +46,9 @@ type Config struct {
 	CheckPath      string   `yaml:"checkPath"`
 	CheckPaths     []string `yaml:"checkPaths"`
 	RootFS         *fs.FS
+	// workaround file order bug in cue
+	RootFsIndex           uint8 `yaml:"rootIndex"`
+	EnableOrderWorkaround bool  `yaml:"enableOrderWorkaround"`
 }
 
 type Component struct {
@@ -58,14 +61,15 @@ type Component struct {
 type Components map[string]Component
 
 type Cuegen struct {
-	Components     Components
-	Debug          bool
-	ObjectsPath    string
-	SecretDataPath string
-	CheckPaths     []string
-	ChartRoot      string
-	DumpOverlaysTo string
-	RootFS         *fs.FS
+	Components            Components
+	Debug                 bool
+	ObjectsPath           string
+	SecretDataPath        string
+	CheckPaths            []string
+	ChartRoot             string
+	DumpOverlaysTo        string
+	RootFS                *fs.FS
+	EnableOrderWorkaround bool
 }
 
 // Exec initializes the Cuegen struct and executes cuegen
@@ -88,11 +92,12 @@ func Exec(config Config) error {
 	}
 
 	cg := Cuegen{
-		Debug:          config.Debug,
-		ObjectsPath:    config.ObjectsPath,
-		ChartRoot:      config.ChartRoot,
-		SecretDataPath: config.SecretDataPath,
-		RootFS:         config.RootFS,
+		Debug:                 config.Debug,
+		ObjectsPath:           config.ObjectsPath,
+		ChartRoot:             config.ChartRoot,
+		SecretDataPath:        config.SecretDataPath,
+		RootFS:                config.RootFS,
+		EnableOrderWorkaround: config.EnableOrderWorkaround,
 	}
 
 	if dumpDir := os.Getenv("DUMP_OVERLAYS_TO"); dumpDir != "" && strings.HasPrefix(dumpDir, "/") {
@@ -118,7 +123,11 @@ func Exec(config Config) error {
 	cg.Components = components
 
 	if cg.RootFS != nil {
-		cg.Components["remoteRootFS"] = Component{
+		id := "remoteRootFS"
+		if cg.EnableOrderWorkaround {
+			id = fmt.Sprintf("%02x%v", 2*config.RootFsIndex, id)
+		}
+		cg.Components[id] = Component{
 			Filesystem: *cg.RootFS,
 			Type:       "remoterootfs",
 		}
@@ -135,8 +144,12 @@ func Exec(config Config) error {
 func (cg Cuegen) getComponents(componentPaths []string) (Components, error) {
 	components := Components{}
 
-	for _, componentPath := range componentPaths {
-		component := Component{Path: componentPath, ID: generateID(componentPath)}
+	for n, componentPath := range componentPaths {
+		id := generateID(componentPath)
+		if cg.EnableOrderWorkaround {
+			id = fmt.Sprintf("%02x%v", 2*n+1, id)
+		}
+		component := Component{Path: componentPath, ID: id}
 		switch {
 
 		case strings.HasPrefix(componentPath, "http://") || strings.HasPrefix(componentPath, "https://") || strings.HasPrefix(componentPath, "git@"):

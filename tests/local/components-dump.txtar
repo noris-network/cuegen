@@ -11,7 +11,20 @@ stdout 'dumped overlay to overlay-ORBY4AOZPH--a.cue'
 cmp OUT/overlay-ORBY4AOZPH--a.cue comp_a/a.cue
 cmp OUT/overlay-CUUTIGWCVW--b.cue comp_b/b.cue
 
+# components: dump overlays with order workaround
+exec bash '-c' 'DUMP_OVERLAYS_TO=$WORK/OUT cuegen chart/cuegen2.yaml'
+stdout 'dumped overlay to overlay-04remoteRootFS--a.cue'
+stdout 'dumped overlay to overlay-03CUUTIGWCVW--b.cue'
+stdout 'dumped overlay to overlay-01ORBY4AOZPH--a.cue'
+
 -- chart/cuegen.yaml --
+components:
+    - ../comp_a
+    - ../comp_b
+
+-- chart/cuegen2.yaml --
+enableOrderWorkaround: true
+rootIndex: 2
 components:
     - ../comp_a
     - ../comp_b
