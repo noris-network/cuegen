@@ -215,6 +215,7 @@ Until [issue 2555][issue2555] is resolved in CUE, there is a [temporary workarou
   * `v0.11.0` - add `DUMP_OVERLAYS_TO` to dump overlays to directory (debug)
   * `v0.11.1` - upgrade sops
   * `v0.12.0` - add workaround for file order bug
+  * `v0.13.0` - No code changes, bump cue version to 0.7.0
 
 [CUE]:         https://cuelang.org
 [SOPS]:        https://github.com/mozilla/sops
