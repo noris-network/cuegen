@@ -9,7 +9,7 @@ require (
 	github.com/go-git/go-git/v5 v5.11.0
 	github.com/joho/godotenv v1.5.1
 	github.com/nxcc/cueconfig v0.0.1
-	github.com/rogpeppe/go-internal v1.11.1-0.20231026093722-fa6a31e0812c
+	github.com/rogpeppe/go-internal v1.12.0
 	golang.org/x/exp v0.0.0-20231006140011-7918f672742d
 	gopkg.in/yaml.v3 v3.0.1
 )
