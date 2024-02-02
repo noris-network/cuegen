@@ -1,6 +1,5 @@
 [![release](https://img.shields.io/github/release/noris-network/cuegen.svg)](https://github.com/noris-network/cuegen/releases)
 [![release](https://github.com/noris-network/cuegen/actions/workflows/release.yaml/badge.svg)](https://github.com/noris-network/cuegen/actions/workflows/release.yaml)
-[![cmp plugin](https://github.com/noris-network/cuegen/actions/workflows/cmp-plugin.yaml/badge.svg)](https://github.com/noris-network/cuegen/actions/workflows/cmp-plugin.yaml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/noris-network/cuegen)](https://goreportcard.com/report/github.com/noris-network/cuegen)
 [![downloads](https://img.shields.io/github/downloads/noris-network/cuegen/total.svg)](https://github.com/noris-network/cuegen/releases)
 

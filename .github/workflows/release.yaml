@@ -6,7 +6,7 @@ on:
       - "v*"
 
 jobs:
-  publishGitRelease:
+  release:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -38,3 +38,20 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ steps.get_version.outputs.VERSION }}
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push
+        env:
+          VERSION: ${{ steps.get_version.outputs.VERSION }}
+        run: |
+          IMAGE=docker.io/${{ secrets.DOCKERHUB_USERNAME }}/${{ secrets.DOCKERHUB_REPOSITORY }}
+          echo version=$VERSION
+          cat docker/Dockerfile-cmp
+          docker build . -t $IMAGE:$VERSION -t $IMAGE:latest -f docker/Dockerfile-cmp --build-arg VERSION=$VERSION
+          docker push $IMAGE:$VERSION
+          docker push $IMAGE:latest
