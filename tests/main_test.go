@@ -20,7 +20,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/noris-network/cuegen/internal/app"
+	app "github.com/noris-network/cuegen/internal/app/v1alpha1"
 
 	"github.com/rogpeppe/go-internal/testscript"
 )
@@ -32,14 +32,26 @@ func TestMain(m *testing.M) {
 	}))
 }
 
-func TestCuegenLocal(t *testing.T) {
+func TestCuegenLocalV1alpha1(t *testing.T) {
 	testscript.Run(t, testscript.Params{
-		Dir: "local",
+		Dir: "v1alpha1/local",
 	})
 }
 
-func TestCuegenRemote(t *testing.T) {
+func TestCuegenLocalV1alpha2(t *testing.T) {
 	testscript.Run(t, testscript.Params{
-		Dir: "remote",
+		Dir: "v1alpha2/local",
+	})
+}
+
+func TestCuegenRemoteV1alpha1(t *testing.T) {
+	testscript.Run(t, testscript.Params{
+		Dir: "v1alpha1/remote",
+	})
+}
+
+func TestCuegenRemoteV1alpha2(t *testing.T) {
+	testscript.Run(t, testscript.Params{
+		Dir: "v1alpha1/remote",
 	})
 }

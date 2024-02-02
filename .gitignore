@@ -1,2 +1,3 @@
-/local
 examples/control-repository/control/demo.cue
+.task
+Taskfile.yml

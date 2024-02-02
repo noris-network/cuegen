@@ -1,0 +1,31 @@
+### cuegen-local.txtar
+
+exec sh -c 'sed -i "s:WORK:$WORK:g" main/cuegen.cue' 
+exec cuegen main
+cmp stdout expect
+
+-- main/cuegen.cue --
+package main
+cuegen: {
+	apiVersion: "v1alpha2"
+	spec: {
+		imports:      ["cuegen.test/aaa=WORK/package/aaa"]
+	}
+}
+
+-- main/main.cue --
+package main
+import "cuegen.test/aaa"
+objects: [aaa.objA]
+
+-- main/config/values.cue --
+package config
+values: a:  "object A"
+
+-- package/aaa/a.cue --
+package aaa
+import "cuegen.local/config"
+objA: config.values.a
+
+-- expect --
+object A

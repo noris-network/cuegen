@@ -1,0 +1,43 @@
+### readfile.txtar
+
+exec sh -c 'sed -i "s:WORK:$WORK:g" main/cuegen.cue' 
+exec sh -c 'cd main && find && cuegen .'
+stdout 'answer_one: "42"'
+stdout 'answer_main: "43"'
+
+-- pkg/one/one.cue --
+package one
+answer_one: string @readfile(answer.txt=trim)
+
+-- pkg/one/answer.txt --
+42
+
+-- main/cue.mod/module.cue --
+module: "example.com"
+
+-- main/cuegen.cue --
+package main
+cuegen: {
+    apiVersion: "v1alpha2"
+    spec: {
+        imports: [
+            "example.com/pkg/one=WORK/pkg/one",
+        ]
+        debug: true
+    }
+}
+
+-- main/main.cue --
+package main
+import "example.com/pkg/one"
+objects: [  
+    {answer_one: one.answer_one},
+    {answer_main: string @readfile(answer.txt=trim)},  // OK
+]
+
+-- main/answer.txt --
+43
+
+-- main/config/values.cue --
+package config
+answer_config: string @readfile(answer.txt=trim)  // OK

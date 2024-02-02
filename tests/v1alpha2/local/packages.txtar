@@ -1,0 +1,38 @@
+### packages.txtar
+
+exec sh -c 'sed -i "s:WORK:$WORK:g" main/cuegen.cue' 
+exec cuegen main
+cmp stdout expect
+
+-- main/cuegen.cue --
+package main
+cuegen: {
+	apiVersion: "v1alpha2"
+	spec: {
+		imports: [
+            "cuegen.test/aaa=WORK/packages/aaa",
+            "cuegen.test/bbb=WORK/packages/bbb"
+		]
+	}
+}
+
+-- main/main.cue --
+package main
+import "cuegen.test/aaa"
+import "cuegen.test/bbb"
+objects: [aaa.objA, bbb.objB]
+
+-- packages/aaa/a.cue --
+package aaa
+
+objA: "object A"
+
+-- packages/bbb/b.cue --
+package bbb
+
+objB: "object B"
+
+-- expect --
+object A
+---
+object B

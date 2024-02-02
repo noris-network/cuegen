@@ -49,6 +49,16 @@ type Config struct {
 	// workaround file order bug in cue
 	RootFsIndex           uint8 `yaml:"rootIndex"`
 	EnableOrderWorkaround bool  `yaml:"enableOrderWorkaround"`
+	//
+	Spec struct {
+		Imports        []string `yaml:"imports"`
+		Debug          bool     `yaml:"debug"`
+		ObjectsPath    string   `yaml:"objectsPath"`
+		YqPostProcess  string   `yaml:"yqPostProcess"`
+		CheckPath      string   `yaml:"checkPath"`
+		CheckPaths     []string `yaml:"checkPaths"`
+		SecretDataPath string   `yaml:"secretDataPath"`
+	} `yaml:"spec"`
 }
 
 type Component struct {

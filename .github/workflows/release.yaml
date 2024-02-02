@@ -21,7 +21,7 @@ jobs:
         run: echo "VERSION=${GITHUB_REF##*/}" >> "${GITHUB_OUTPUT}"
 
       - name: Run Tests
-        run: go test ./tests ./internal/cuegen
+        run: go test ./tests ./internal/...
 
       - name: Test Examples
         run: |
