@@ -27,7 +27,8 @@ import (
 	"runtime/debug"
 	"strings"
 
-	"github.com/noris-network/cuegen/internal/cuegen"
+	"github.com/noris-network/cuegen/internal/app/v1alpha2"
+	cuegen "github.com/noris-network/cuegen/internal/cuegen/v1alpha1"
 	"github.com/nxcc/cueconfig"
 	"gopkg.in/yaml.v3"
 )
@@ -83,6 +84,10 @@ func Main() int {
 	configFile, config, err := loadConfig(os.Args[1])
 	if err != nil {
 		log.Fatalf("loadconfig: %v", err)
+	}
+
+	if config.APIVersion == "v1alpha2" {
+		return v1alpha2.Main()
 	}
 
 	// logging
@@ -156,9 +161,6 @@ func loadConfig(path string) (string, cuegen.Config, error) {
 		}
 		return "", fmt.Errorf("config %q not found", path)
 	}()
-	if err != nil {
-		return "", cuegen.Config{}, err
-	}
 	if err != nil {
 		return "", cuegen.Config{}, err
 	}

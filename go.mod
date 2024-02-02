@@ -12,6 +12,7 @@ require (
 	github.com/rogpeppe/go-internal v1.12.0
 	golang.org/x/exp v0.0.0-20231006140011-7918f672742d
 	gopkg.in/yaml.v3 v3.0.1
+	mvdan.cc/sh/v3 v3.7.0
 )
 
 require (

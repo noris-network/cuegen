@@ -17,12 +17,19 @@ package main
 import (
 	"os"
 
-	"github.com/noris-network/cuegen/internal/app"
+	v1alpha1 "github.com/noris-network/cuegen/internal/app/v1alpha1"
+	v1alpha2 "github.com/noris-network/cuegen/internal/app/v1alpha2"
 )
 
 var build = "dev"
 
 func main() {
-	app.Build = build
-	os.Exit(app.Main())
+	v1alpha1.Build = build
+	v1alpha2.Build = build
+	switch os.Getenv("CUEGEN_APIVERSION") {
+	case "v1alpha2":
+		os.Exit(v1alpha2.Main())
+	default:
+		os.Exit(v1alpha1.Main())
+	}
 }

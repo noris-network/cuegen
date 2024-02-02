@@ -1,0 +1,14 @@
+### packages.txtar
+
+# this test will fail with v1alpha1, so explicitly switch to v1alpha2
+
+exec bash -c 'CUEGEN_APIVERSION=v1alpha2 cuegen "https://github.com/nxcc/cuegen-remote-test.git?ref=v1alpha2&path=control/one"'
+cmp stdout expect 
+
+exec bash -c 'CUEGEN_APIVERSION=v1alpha2 cuegen "https://github.com/nxcc/cuegen-remote-test.git/control/one?ref=v1alpha2"'
+cmp stdout expect 
+
+-- expect --
+object A
+---
+object B

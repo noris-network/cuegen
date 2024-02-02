@@ -1,2 +1,5 @@
 /local
 examples/control-repository/control/demo.cue
+internal/cuepp/testdata/*/*-output.cue
+.task
+Taskfile.yml
