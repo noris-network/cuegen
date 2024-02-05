@@ -217,6 +217,7 @@ Until [issue 2555][issue2555] is resolved in CUE, there is a [temporary workarou
   * `v0.13.0` - No code changes, bump cue version to 0.7.0
   * `v0.13.1` - bump deps
   * `v0.14.0` - "silent release" of v1alpha2 schema
+  * `v0.14.1` - v1alpha2: fix subdir issue
 
 [CUE]:         https://cuelang.org
 [SOPS]:        https://github.com/mozilla/sops

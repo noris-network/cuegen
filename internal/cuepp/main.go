@@ -25,7 +25,7 @@ type CuePP struct {
 var removeErrorString = regexp.MustCompile(`// explicit error \(_\|_ literal\) in source\s*`)
 var stripPkgName = regexp.MustCompile(`:.*$`)
 
-func (p CuePP) Process(src string, fsys fs.FS) (string, error) {
+func (p CuePP) Process(src, dir string, fsys fs.FS) (string, error) {
 
 	// workaround disapearing-package-issue
 	packageName := getPackage(src)
@@ -75,7 +75,7 @@ func (p CuePP) Process(src string, fsys fs.FS) (string, error) {
 	value.Walk(func(v cue.Value) bool {
 		for _, attr := range v.Attributes(cue.ValueAttr) {
 			if slices.Contains(cuegenAttrs, attr.Name()) {
-				value, err = p.processAttribute(value, v, attr, fsys)
+				value, err = p.processAttribute(value, v, attr, fsys, dir)
 				if err != nil {
 					return false
 				}

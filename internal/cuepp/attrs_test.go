@@ -58,7 +58,7 @@ func TestReadAttributes(t *testing.T) {
 
 			// process attributes
 			dir := filepath.Join(cwd, filepath.Dir(path))
-			output, err := p.Process(string(source), os.DirFS(dir))
+			output, err := p.Process(string(source), "", os.DirFS(dir))
 			if err != nil {
 				t.Fatal("Process: ", err)
 			}

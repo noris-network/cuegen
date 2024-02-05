@@ -1,0 +1,51 @@
+### subdir.txtar
+
+exec sh -c 'sed -i "s:WORK:$WORK:g" main/cuegen.cue' 
+exec sh -c 'cd main && find && cuegen .'
+stdout 'answer_one: "42"'
+stdout 'answer_two: "43"'
+stdout 'answer_three: "44"'
+
+-- main/cuegen.cue --
+package main
+cuegen: {
+    apiVersion: "v1alpha2"
+    spec: {
+        imports: [
+            "example.com/pkg/one=WORK/pkg/one",
+        ]
+        debug: true
+    }
+}
+
+-- main/cue.mod/module.cue --
+module: "example.com"
+
+-- pkg/one/one.cue --
+package one
+answer_one:   string @readfile(data/answer.txt=trim)
+answer_two:   {}     @readmap(data/dir)
+answer_three: {}     @read(data/answer.yaml)
+
+-- pkg/one/data/answer.txt --
+42
+
+-- pkg/one/data/dir/answer.txt --
+43
+
+-- pkg/one/data/answer.yaml --
+ans:
+    wer:
+        "44"
+
+-- main/main.cue --
+package main
+import "example.com/pkg/one"
+import "strings"
+objects: [  
+    {
+        answer_one: one.answer_one,
+        answer_two: strings.TrimSpace(one.answer_two."answer.txt"),
+        answer_three: one.answer_three.ans.wer,
+    },
+]

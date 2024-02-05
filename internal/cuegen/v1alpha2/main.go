@@ -179,7 +179,9 @@ func (cg Cuegen) buildLoadConfig(emptydir string) (*load.Config, error) {
 						Debug:       true,
 						SecretsPath: cg.Config.SecretDataPath,
 					}
-					output, err := p.Process(string(data), pack.FS)
+
+					dir := filepath.Dir(filename)
+					output, err := p.Process(string(data), dir, pack.FS)
 					if err != nil {
 						return fmt.Errorf("process: %v", err)
 					}
