@@ -5,6 +5,7 @@ exec sh -c 'cd main && find && cuegen .'
 stdout 'answer_one: "42"'
 stdout 'answer_two: "43"'
 stdout 'answer_three: "44"'
+stdout 'answer_four: "45"'
 
 -- main/cuegen.cue --
 package main
@@ -23,6 +24,7 @@ module: "example.com"
 
 -- pkg/one/one.cue --
 package one
+//cuegen: process
 answer_one:   string @readfile(data/answer.txt=trim)
 answer_two:   {}     @readmap(data/dir)
 answer_three: {}     @read(data/answer.yaml)
@@ -41,11 +43,21 @@ ans:
 -- main/main.cue --
 package main
 import "example.com/pkg/one"
+import "cuegen.local/config"
 import "strings"
 objects: [  
     {
         answer_one: one.answer_one,
         answer_two: strings.TrimSpace(one.answer_two."answer.txt"),
         answer_three: one.answer_three.ans.wer,
+        answer_four: config.answer_four
     },
 ]
+
+-- main/config/config.cue --
+package config
+//cuegen: process
+answer_four: string @readfile(values.yaml)
+
+-- main/config/values.yaml --
+answer_four: "45"

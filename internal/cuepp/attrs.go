@@ -24,7 +24,7 @@ func (p CuePP) processAttribute(value, node cue.Value, attr cue.Attribute, fsys 
 	var err error
 	switch attr.Name() {
 	case "readfile":
-		value, err = p.attrReadFile(value, node.Path().String(), attr, fsys)
+		value, err = p.attrReadFile(value, node.Path().String(), attr, fsys, dir)
 		if err != nil {
 			err = fmt.Errorf("attrReadFile: %v", err)
 		}
@@ -34,7 +34,7 @@ func (p CuePP) processAttribute(value, node cue.Value, attr cue.Attribute, fsys 
 			err = fmt.Errorf("attrReadMap: %v", err)
 		}
 	case "read":
-		value, err = p.attrRead(value, node.Path().String(), attr, fsys)
+		value, err = p.attrRead(value, node.Path().String(), attr, fsys, dir)
 		if err != nil {
 			err = fmt.Errorf("attrRead: %v", err)
 		}
@@ -48,7 +48,7 @@ func (p CuePP) processAttribute(value, node cue.Value, attr cue.Attribute, fsys 
 	return value, nil
 }
 
-func (p CuePP) attrReadFile(value cue.Value, path string, attr cue.Attribute, fsys fs.FS) (cue.Value, error) {
+func (p CuePP) attrReadFile(value cue.Value, path string, attr cue.Attribute, fsys fs.FS, dir string) (cue.Value, error) {
 
 	alldata := ""
 	asBytesFlag := false
@@ -56,7 +56,7 @@ func (p CuePP) attrReadFile(value cue.Value, path string, attr cue.Attribute, fs
 	for i := 0; i < attr.NumArgs(); i++ {
 
 		file, flag := attr.Arg(i)
-		data, err := p.readFile(fsys, file)
+		data, err := p.readFile(fsys, filepath.Join(dir, file))
 		if err != nil {
 			return value, fmt.Errorf("readFile: %v", err)
 		}
@@ -86,8 +86,7 @@ func (p CuePP) attrReadFile(value cue.Value, path string, attr cue.Attribute, fs
 func (p CuePP) attrReadMap(value cue.Value, cuePath string, attr cue.Attribute, fsys fs.FS, dir string) (cue.Value, error) {
 	for i := 0; i < attr.NumArgs(); i++ {
 		item, suffix := attr.Arg(i)
-		item = filepath.Join(dir, item)
-		data, err := p.readPath(fsys, item)
+		data, err := p.readPath(fsys, filepath.Join(dir, item))
 		if err != nil {
 			return value, fmt.Errorf("attrRead: %v", err)
 		}
@@ -108,10 +107,10 @@ func (p CuePP) attrReadMap(value cue.Value, cuePath string, attr cue.Attribute, 
 	return value, nil
 }
 
-func (p CuePP) attrRead(value cue.Value, cuePath string, attr cue.Attribute, fsys fs.FS) (cue.Value, error) {
+func (p CuePP) attrRead(value cue.Value, cuePath string, attr cue.Attribute, fsys fs.FS, dir string) (cue.Value, error) {
 	for i := 0; i < attr.NumArgs(); i++ {
 		item, _ := attr.Arg(i)
-		data, err := p.readPath(fsys, item)
+		data, err := p.readPath(fsys, filepath.Join(dir, item))
 		if err != nil {
 			return value, fmt.Errorf("attrRead: %v", err)
 		}

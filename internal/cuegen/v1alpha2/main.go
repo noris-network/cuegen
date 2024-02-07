@@ -21,6 +21,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"cuelang.org/go/cue"
@@ -174,16 +175,22 @@ func (cg Cuegen) buildLoadConfig(emptydir string) (*load.Config, error) {
 						return err
 					}
 
-					p := cuepp.CuePP{
-						Tempdir:     emptydir,
-						Debug:       true,
-						SecretsPath: cg.Config.SecretDataPath,
-					}
+					output := string(data)
 
-					dir := filepath.Dir(filename)
-					output, err := p.Process(string(data), dir, pack.FS)
-					if err != nil {
-						return fmt.Errorf("process: %v", err)
+					rx := regexp.MustCompile("(?m)^//cuegen: process$")
+					if rx.MatchString(output) {
+						log.Printf("Process:  [%v] %v", pack.Name, filename)
+						p := cuepp.CuePP{
+							Tempdir:     emptydir,
+							Debug:       true,
+							SecretsPath: cg.Config.SecretDataPath,
+						}
+						dir := filepath.Dir(filename)
+						out, err := p.Process(output, dir, pack.FS)
+						if err != nil {
+							return fmt.Errorf("process: %v", err)
+						}
+						output = out
 					}
 
 					overlayFilename := filename
