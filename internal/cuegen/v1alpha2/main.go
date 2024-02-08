@@ -61,6 +61,8 @@ type Cuegen struct {
 	EmptyDir string
 }
 
+var cuegenProcess = regexp.MustCompile("(?m)^//cuegen: process$")
+
 func (cg Cuegen) Exec() error {
 
 	emptyDir := ""
@@ -177,9 +179,7 @@ func (cg Cuegen) buildLoadConfig(emptydir string) (*load.Config, error) {
 
 					output := string(data)
 
-					rx := regexp.MustCompile("(?m)^//cuegen: process$")
-					if rx.MatchString(output) {
-						log.Printf("Process:  [%v] %v", pack.Name, filename)
+					if cuegenProcess.MatchString(output) {
 						p := cuepp.CuePP{
 							Tempdir:     emptydir,
 							Debug:       true,

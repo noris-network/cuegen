@@ -4,10 +4,14 @@ exec sh -c 'sed -i "s:WORK:$WORK:g" main/cuegen.cue'
 exec sh -c 'cd main && find && cuegen .'
 stdout 'answer_one: "42"'
 stdout 'answer_main: "43"'
+stdout 'answer_config: "44"'
 
 -- pkg/one/one.cue --
+//cuegen: process
 package one
+import "cuegen.local/config"
 answer_one: string @readfile(answer.txt=trim)
+answer_config: config.answer_config
 
 -- pkg/one/answer.txt --
 42
@@ -28,16 +32,22 @@ cuegen: {
 }
 
 -- main/main.cue --
+//cuegen: process
 package main
 import "example.com/pkg/one"
 objects: [  
     {answer_one: one.answer_one},
-    {answer_main: string @readfile(answer.txt=trim)},  // OK
+    {answer_main: string @readfile(answer.txt=trim)},
+    {answer_config: one.answer_config},
 ]
 
 -- main/answer.txt --
 43
 
+-- main/config/answer.txt --
+44
+
 -- main/config/values.cue --
+//cuegen: process
 package config
-answer_config: string @readfile(answer.txt=trim)  // OK
+answer_config: string @readfile(answer.txt=trim)
