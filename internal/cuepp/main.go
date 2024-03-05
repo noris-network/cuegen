@@ -22,11 +22,12 @@ type CuePP struct {
 	SecretsPath string
 }
 
-var removeErrorString = regexp.MustCompile(`// explicit error \(_\|_ literal\) in source\s*`)
-var stripPkgName = regexp.MustCompile(`:.*$`)
+var (
+	removeErrorString = regexp.MustCompile(`// explicit error \(_\|_ literal\) in source\s*`)
+	stripPkgName      = regexp.MustCompile(`:.*$`)
+)
 
 func (p CuePP) Process(src, dir string, fsys fs.FS) (string, error) {
-
 	// workaround disapearing-package-issue
 	packageName := getPackage(src)
 
@@ -109,6 +110,10 @@ func (p CuePP) Process(src, dir string, fsys fs.FS) (string, error) {
 	packageName2 := getPackage(output)
 	if packageName2 == "" {
 		fmt.Fprintf(out, "package %v\n\n", packageName)
+		// strip curly braces
+		if strings.HasPrefix(output, "{") && strings.HasSuffix(output, "}") {
+			output = strings.TrimSuffix(strings.TrimPrefix(output, "{"), "}")
+		}
 	}
 
 	fmt.Fprintf(out, "%v", output)

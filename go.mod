@@ -1,9 +1,9 @@
 module github.com/noris-network/cuegen
 
-go 1.20
+go 1.22
 
 require (
-	cuelang.org/go v0.7.0
+	cuelang.org/go v0.7.1
 	github.com/forensicanalysis/gitfs v0.2.1
 	github.com/getsops/sops/v3 v3.8.1
 	github.com/go-git/go-git/v5 v5.11.0
@@ -12,7 +12,6 @@ require (
 	github.com/rogpeppe/go-internal v1.12.0
 	golang.org/x/exp v0.0.0-20231006140011-7918f672742d
 	gopkg.in/yaml.v3 v3.0.1
-	mvdan.cc/sh/v3 v3.7.0
 )
 
 require (

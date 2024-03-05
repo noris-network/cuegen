@@ -1,10 +1,10 @@
-FROM        golang:1.21 as builder
+FROM        golang:1.22 as builder
 WORKDIR     /go/src/app
 ARG         VERSION
 COPY        . ./
 RUN         CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X 'main.build=$VERSION'" -o cuegen .
 RUN         sed "s/VERSION/$VERSION/g" docker/plugin.yaml > plugin.yaml
-RUN         curl -sfL https://github.com/mikefarah/yq/releases/download/v4.40.5/yq_linux_amd64 -o /tmp/yq && chmod 755 /tmp/yq
+RUN         curl -sfL https://github.com/mikefarah/yq/releases/download/v4.42.1/yq_linux_amd64 -o /tmp/yq && chmod 755 /tmp/yq
 
 FROM        gcr.io/distroless/static-debian11
 COPY        --from=builder /tmp/yq                  /bin/yq

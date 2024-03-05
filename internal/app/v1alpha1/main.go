@@ -28,18 +28,21 @@ import (
 	"strings"
 
 	"github.com/noris-network/cuegen/internal/app/v1alpha2"
+	alpha2App "github.com/noris-network/cuegen/internal/app/v1alpha2"
 	cuegen "github.com/noris-network/cuegen/internal/cuegen/v1alpha1"
+	alpha2Cuegen "github.com/noris-network/cuegen/internal/cuegen/v1alpha2"
 	"github.com/nxcc/cueconfig"
 	"gopkg.in/yaml.v3"
 )
 
-const defaultYamlCuegenFile = "cuegen.yaml"
-const defaultCueCuegenFile = "cuegen.cue"
+const (
+	defaultYamlCuegenFile = "cuegen.yaml"
+	defaultCueCuegenFile  = "cuegen.cue"
+)
 
 var Build = ""
 
 func Main() int {
-
 	checkForCuegenDir := false
 
 	flag.BoolVar(&checkForCuegenDir, "is-cuegen-dir", false, "check current working directory for cuegen.{yaml,cue} (for cmp detection)")
@@ -120,7 +123,6 @@ func Main() int {
 // loadConfig loads the cuegen config. When a directory is passed, cuegen will
 // look for the default "cuegen.{cue,yaml}" in that directory.
 func loadConfig(path string) (string, cuegen.Config, error) {
-
 	var rootfs fs.FS
 
 	if strings.HasPrefix(path, "http://") || strings.HasPrefix(path, "https://") {
@@ -198,6 +200,17 @@ var cuegenConfigSchema []byte
 
 // loadCueConfig loads the cuegen config
 func loadCueConfig(fsys fs.FS, file string) (string, cuegen.Config, error) {
+
+	detect := struct{ Cuegen alpha2Cuegen.Detect }{}
+	err := cueconfig.LoadFS(fsys, file, alpha2App.CuegenDetectSchema, nil, nil, &detect)
+	if err != nil {
+		return "", cuegen.Config{}, fmt.Errorf("load cue: CuegenDetect: %v", err)
+	}
+
+	if detect.Cuegen.APIVersion == "v1alpha2" {
+		return "", cuegen.Config{APIVersion: detect.Cuegen.APIVersion}, nil
+	}
+
 	config := struct{ Cuegen cuegen.Config }{}
 	if err := cueconfig.LoadFS(fsys, file, cuegenConfigSchema, nil, nil, &config); err != nil {
 		return "", cuegen.Config{}, fmt.Errorf("load cue: %v", err)

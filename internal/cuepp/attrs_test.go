@@ -15,7 +15,6 @@ import (
 )
 
 func TestReadAttributes(t *testing.T) {
-
 	// development-only
 	writeOutputToFile := os.Getenv("WRITE_OUTPUT_TO_FILE") == "true"
 
@@ -49,7 +48,6 @@ func TestReadAttributes(t *testing.T) {
 		testdir := filepath.Base(filepath.Dir(path))
 		testname := filepath.Base(strings.TrimSuffix(path, "-source.cue"))
 		t.Run(testdir+"-"+testname, func(t *testing.T) {
-
 			// read cue source
 			source, err := os.ReadFile(path)
 			if err != nil {
@@ -108,7 +106,6 @@ func TestReadAttributes(t *testing.T) {
 					t.Errorf("\n=== got:\n%s\n=== want:\n%s\n", output, want)
 				}
 			}
-
 		})
 	}
 }

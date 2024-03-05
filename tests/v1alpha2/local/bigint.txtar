@@ -1,0 +1,318 @@
+exec bash -c 'find . -type f -name cuegen.cue -exec sed -i "s;WORK;$WORK;" {} \;'
+exec cuegen myapp/dev
+
+stdout 'kind: main-object-1'
+stdout 'kind: main-object-2'
+stdout 'kind: main-object-3'
+stdout 'kind: application-object-1'
+stdout 'fromlibone: 3xa from one'
+stdout 'kind: application-object-2'
+stdout 'fromlibtwo: 3xb from two'
+stdout 'kind: application-object-3'
+stdout 'alpha: 3xc from three'
+stdout 'G3KudnHgG9m5EaQL8u2PQ2CB.MqdPBcD2zdsw9mWoFM3fjpLF.ohUL'
+stdout 'kind: application-object-4'
+stdout '%%% this is a demo app %%%'
+stdout 'kind: database-object-1'
+stdout 'fromlibone: 3xa from one'
+stdout 'kind: database-object-2'
+stdout 'fromlibtwo: 3xb from two'
+stdout 'kind: database-object-3'
+stdout 'fromconfig: my-dev-cluster-001'
+stdout 'kind: cache-object-1'
+stdout 'fromlibone: 3xa from one'
+stdout 'kind: cache-object-2'
+stdout 'fromlibthree: 3xc from three'
+stdout 'kind: cache-object-3'
+stdout 'fromconfig: my-app-dev'
+stdout 'kind: cache-object-4'
+stdout 'timeToLive: 999'
+-- myapp/dev/config/values.cue --
+package config
+
+values: {
+	global: cluster: name: "my-dev-cluster-001"
+	instance: namespace: "my-app-dev"
+}
+-- myapp/dev/cuegen.cue --
+package main
+
+cuegen: {
+	apiVersion: "v1alpha2"
+	kind:       "Cuegen"
+	metadata: {
+		appVersion: "1.0.0"
+		pkgVersion: "dev.1"
+		name:       "myapp-dev"
+	}
+	spec: {
+		debug: !true
+		packages: [
+			{
+				_x:      "application"
+				package: "example.com/pkgs/" + _x
+				path:    "WORK/packages/" + _x
+			},
+			{
+				_x:      "database"
+				package: "example.com/pkgs/" + _x
+				path:    "WORK/packages/" + _x
+			},
+			{
+				_x:      "cache"
+				package: "example.com/pkgs/" + _x
+				path:    "WORK/packages/" + _x
+			},
+		]
+		imports: [
+			{
+				_x:      "libone"
+				package: "example.com/pkgs/" + _x
+				path:    "WORK/packages/" + _x
+			},
+		]
+	}
+}
+-- myapp/dev/main.cue --
+package main
+
+objects: [
+	{kind: "main-object-1"},
+	{kind: "main-object-2"},
+	{kind: "main-object-3"},
+]
+-- myapp/dev/overlay/cache/ttl.cue --
+package cache
+
+values: ttl: 999
+-- packages/application/application.cue --
+package application
+
+import (
+	"example.com/pkgs/libone"
+	"example.com/pkgs/libtwo"
+	"example.com/pkgs/libthree"
+)
+
+objects: [
+	{
+		kind:       "application-object-1"
+		fromlibone: libone.values.aaa
+	},
+	{
+		kind:       "application-object-2"
+		fromlibtwo: libtwo.values.bbb
+	},
+	{
+		kind: "application-object-3"
+		fromlibthree: {
+			alpha:     libthree.values.ccc
+			signature: libthree.values.sig
+		}
+
+	},
+	{
+		kind:  "application-object-4"
+		about: appInfo
+	},
+]
+-- packages/application/cuegen.cue --
+package application
+
+cuegen: {
+	apiVersion: "v1alpha2"
+	kind:       "CuegenPackage"
+	metadata: name: "application"
+	spec: {
+		debug: !true
+		imports: [
+			{
+				_x:      "libone"
+				package: "example.com/pkgs/" + _x
+				path:    "WORK/packages/" + _x
+			},
+			{
+				_x:      "libtwo"
+				package: "example.com/pkgs/" + _x
+				path:    "WORK/packages/" + _x
+			},
+			{
+				_x:      "libthree"
+				package: "example.com/pkgs/" + _x
+				path:    "WORK/packages/" + _x
+			},
+		]
+	}
+}
+-- packages/application/info.txt --
+%%% this is a demo app %%%
+-- packages/application/resources.cue --
+//cuegen: process
+
+package application
+
+appInfo: string @readfile(info.txt)
+-- packages/cache/cache.cue --
+package cache
+
+import (
+	"example.com/pkgs/libone"
+	"example.com/pkgs/libthree"
+	"cuegen.local/config"
+)
+
+export: [
+	{
+		kind:       "cache-object-1"
+		fromlibone: libone.values.aaa
+	},
+	{
+		kind:         "cache-object-2"
+		fromlibthree: libthree.values.ccc
+	},
+	{
+		kind:       "cache-object-3"
+		fromconfig: config.values.instance.namespace
+	},
+	{
+		kind:       "cache-object-4"
+		timeToLive: values.ttl
+	},
+]
+
+values: ttl: *15 | int
+-- packages/cache/cuegen.cue --
+package cache
+
+cuegen: {
+	apiVersion: "v1alpha2"
+	kind:       "CuegenPackage"
+	metadata: name: "cache"
+	spec: {
+		debug:       !true
+		objectsPath: "export"
+		imports: [
+			{
+				_x:      "libone"
+				package: "example.com/pkgs/" + _x
+				path:    "WORK/packages/" + _x
+			},
+			{
+				_x:      "libthree"
+				package: "example.com/pkgs/" + _x
+				path:    "WORK/packages/" + _x
+			},
+		]
+	}
+}
+-- packages/database/cuegen.cue --
+package database
+
+cuegen: {
+	apiVersion: "v1alpha2"
+	kind:       "CuegenPackage"
+	metadata: name: "database"
+	spec: {
+		debug: !true
+		imports: [
+			{
+				_x:      "libone"
+				package: "example.com/pkgs/" + _x
+				path:    "WORK/packages/" + _x
+			},
+			{
+				_x:      "libtwo"
+				package: "example.com/pkgs/" + _x
+				path:    "WORK/packages/" + _x
+			},
+		]
+	}
+}
+-- packages/database/database.cue --
+package database
+
+import (
+	"example.com/pkgs/libone"
+	"example.com/pkgs/libtwo"
+	"cuegen.local/config"
+)
+
+objects: [
+	{
+		kind:       "database-object-1"
+		fromlibone: libone.values.aaa
+	},
+	{
+		kind:       "database-object-2"
+		fromlibtwo: libtwo.values.bbb
+	},
+	{
+		kind:       "database-object-3"
+		fromconfig: config.values.global.cluster.name
+	},
+]
+-- packages/libone/cuegen.cue --
+package libone
+
+cuegen: {
+	apiVersion: "v1alpha2"
+	kind:       "CuegenLibrary"
+	metadata: {
+		name:    "libone"
+		version: "0.1.0"
+	}
+	spec: {
+		debug: !true
+	}
+}
+
+values: {
+	aaa: "3xa from one"
+}
+-- packages/libthree/cuegen.cue --
+package libthree
+
+cuegen: {
+	apiVersion: "v1alpha2"
+	kind:       "CuegenLibrary"
+	metadata: {
+		name:    "libthree"
+		version: "0.3.0"
+	}
+	spec: {
+		debug: !true
+	}
+}
+
+values: {
+	ccc: "3xc from three"
+	sig: signature
+}
+
+signature: string
+-- packages/libthree/resources.cue --
+//cuegen: process
+
+package libthree
+
+signature: string @readfile(sig.txt)
+-- packages/libthree/sig.txt --
+G3KudnHgG9m5EaQL8u2PQ2CB.MqdPBcD2zdsw9mWoFM3fjpLF.ohUL
+-- packages/libtwo/cuegen.cue --
+package libtwo
+
+cuegen: {
+	apiVersion: "v1alpha2"
+	kind:       "CuegenLibrary"
+	metadata: {
+		name:    "libtwo"
+		version: "0.2.0"
+	}
+	spec: {
+		debug: !true
+	}
+}
+
+values: {
+	bbb: "3xb from two"
+}

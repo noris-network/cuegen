@@ -1,3 +1,5 @@
 examples/control-repository/control/demo.cue
 .task
+.vscode
 Taskfile.yml
+.task

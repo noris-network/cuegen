@@ -10,5 +10,6 @@ cuegen: close({
 	// allow v1alpha2...
 	apiVersion: *"" | string
 	kind:       *"" | string
+	metadata: {}
 	spec: {}
 })

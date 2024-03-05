@@ -84,7 +84,6 @@ type Cuegen struct {
 
 // Exec initializes the Cuegen struct and executes cuegen
 func Exec(config Config) error {
-
 	if os.Getenv("CUEGEN_DEBUG") == "true" {
 		config.Debug = true
 	}

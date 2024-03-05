@@ -18,7 +18,6 @@ import (
 var cuegenAttrs = []string{"read", "readfile", "readmap"}
 
 func (p CuePP) processAttribute(value, node cue.Value, attr cue.Attribute, fsys fs.FS, dir string) (cue.Value, error) {
-
 	log.Printf("process attribute: %v @%v(%v)", node.Path().String(), attr.Name(), attr.Contents())
 
 	var err error
@@ -49,7 +48,6 @@ func (p CuePP) processAttribute(value, node cue.Value, attr cue.Attribute, fsys 
 }
 
 func (p CuePP) attrReadFile(value cue.Value, path string, attr cue.Attribute, fsys fs.FS, dir string) (cue.Value, error) {
-
 	alldata := ""
 	asBytesFlag := false
 
@@ -192,7 +190,6 @@ var (
 )
 
 func (p CuePP) readFile(fsys fs.FS, file string) (string, error) {
-
 	if p.Debug {
 		log.Printf("    readFile: %v", file)
 	}
@@ -244,7 +241,6 @@ func (p CuePP) readFile(fsys fs.FS, file string) (string, error) {
 }
 
 func (p CuePP) asBytes(cuePath string, asBytesFlag bool) bool {
-
 	if p.SecretsPath == "" {
 		return false
 	}

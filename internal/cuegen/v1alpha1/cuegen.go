@@ -47,7 +47,6 @@ type pathValueAttributes map[string]valueAttributes
 var cuegenAttrs = []string{"read", "readfile", "readmap"}
 
 func (cg Cuegen) Exec() error {
-
 	// load component overlays
 	cfg, err := cg.buildLoadConfig()
 	if err != nil {
@@ -205,8 +204,10 @@ func noBinaryPrefix(yml string) string {
 	return strings.ReplaceAll(yml, ": !!binary ", ": ")
 }
 
-const localFilesystem = "<local>"
-const overlayFmt = "overlay-%v--%v"
+const (
+	localFilesystem = "<local>"
+	overlayFmt      = "overlay-%v--%v"
+)
 
 // buildLoadConfig builds a 'load.Config' for 'load.Instances' containing all
 // component files in the Overlay, filenames are prefixed with the component.ID
@@ -254,7 +255,7 @@ func (cg Cuegen) buildLoadConfig() (*load.Config, error) {
 					}
 					if cg.DumpOverlaysTo != "" {
 						path := filepath.Join(cg.DumpOverlaysTo, overlayFilename)
-						err := os.WriteFile(path, data, 0644)
+						err := os.WriteFile(path, data, 0o644)
 						if err != nil {
 							return err
 						}

@@ -1,0 +1,13 @@
+env CUEGEN_HTTP_PASSWORD=
+env CUEGEN_HTTP_USERNAME=
+exec cuegen https://github.com/nxcc/cuegen-v1a2-testapp.git
+
+cmp stdout golden.txt
+-- golden.txt --
+---
+kind: ConfigMap
+metadata:
+  name: test1
+data:
+  AAA: aaa value
+  BBB: bbb value
