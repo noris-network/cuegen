@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"io/fs"
 	"log/slog"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -103,9 +104,8 @@ func (cg Cuegen) buildLoadConfig(emptydir string) (*load.Config, error) {
 						}
 					}
 
-					path := filepath.Join(emptydir, overlayFilename)
-					files[path] = []byte(output)
-					slog.Debug("map file", "source", filename, "target", path)
+					files[overlayFilename] = []byte(output)
+					slog.Debug("map file", "source", filename, "target", overlayFilename)
 				}
 				return nil
 			},
@@ -137,25 +137,38 @@ func (cg Cuegen) buildLoadConfig(emptydir string) (*load.Config, error) {
 			}
 
 			if gen != "" {
-				files[filepath.Join(emptydir, "load_objects_gen.cue")] = []byte(gen)
+				files["load_objects_gen.cue"] = []byte(gen)
 			}
 		}
 	}
 
-	files[filepath.Join(emptydir, "cue.mod/module.cue")] = []byte(`module: "cuegen.local"`)
+	files["cue.mod/module.cue"] = []byte(`module: "cuegen.local"`)
+
+	dumpPrefix := ""
+	dumpFiles := os.Getenv("DUMP_OVERLAYS_TO") != ""
+	if dumpFiles {
+		if mainPkg.Kind == Kinds.UNKNOWN {
+			dumpPrefix = filepath.Join(os.Getenv("DUMP_OVERLAYS_TO"), "root")
+		} else {
+			dumpPrefix = filepath.Join(os.Getenv("DUMP_OVERLAYS_TO"), mainPkg.Name, mainPkg.Version)
+		}
+		if err := os.RemoveAll(dumpPrefix); err != nil {
+			return &load.Config{}, fmt.Errorf("cleanup dumpdir: %v", err)
+		}
+	}
 
 	overlay := map[string]load.Source{}
 	for path, data := range files {
-		// if dumpFiles {
-		// 	fmt.Println(string(data))
-		// 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		// 		return &load.Config{}, fmt.Errorf("mkdir: %v", err)
-		// 	}
-		// 	if err := os.WriteFile(path, []byte(data), 0o644); err != nil {
-		// 		return &load.Config{}, fmt.Errorf("writefile: %v", err)
-		// 	}
-		// }
-		overlay[path] = load.FromBytes(data)
+		if dumpFiles {
+			dumpto := filepath.Join(dumpPrefix, path)
+			if err := os.MkdirAll(filepath.Dir(dumpto), 0o755); err != nil {
+				return &load.Config{}, fmt.Errorf("mkdir: %v", err)
+			}
+			if err := os.WriteFile(dumpto, []byte(data), 0o644); err != nil {
+				return &load.Config{}, fmt.Errorf("writefile: %v", err)
+			}
+		}
+		overlay[filepath.Join(emptydir, path)] = load.FromBytes(data)
 	}
 
 	return &load.Config{Overlay: overlay}, nil
