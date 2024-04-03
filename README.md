@@ -218,6 +218,7 @@ Until [issue 2555][issue2555] is resolved in CUE, there is a [temporary workarou
   * `v0.13.1` - bump deps
   * `v0.14.x` - "silent release" of v1alpha2 schema...
   * `v0.14.4` - No code changes, bump cue version to 0.8.0
+  * `v0.14.5` - No code changes, bump cue version to 0.8.1
 
 [CUE]:         https://cuelang.org
 [SOPS]:        https://github.com/mozilla/sops
