@@ -1,6 +1,6 @@
 ### readfile-simple.txtar
 
-exec kuegen
+exec cuegen
 stdout 'foo.bar.baz'
 -- cue.mod/module.cue --
 module: "example.com/foo@v0"

@@ -1,6 +1,6 @@
 ### readfile-multi.txtar
 
-exec kuegen
+exec cuegen
 stdout 'foo.bar.baz-red/green/blue'
 -- cue.mod/module.cue --
 module: "example.com/foo@v0"

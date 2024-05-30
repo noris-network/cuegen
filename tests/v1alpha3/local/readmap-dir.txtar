@@ -1,6 +1,6 @@
 ### readmap-dir.txtar
 
-exec kuegen
+exec cuegen
 stdout 'twentythree'
 stdout 'fortytwo'
 -- cue.mod/module.cue --

@@ -1,6 +1,6 @@
 ### read-multi.txtar
 
-exec kuegen
+exec cuegen
 stdout 'bar: 42'
 stdout 'foo: 23'
 stdout 'baz: twentythree'

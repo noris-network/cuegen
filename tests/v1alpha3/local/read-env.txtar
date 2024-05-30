@@ -1,6 +1,6 @@
 ### read-env.txtar
 
-exec kuegen
+exec cuegen
 stdout 'BAR: "42'
 stdout 'FOO: "23'
 -- cue.mod/module.cue --

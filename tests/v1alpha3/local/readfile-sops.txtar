@@ -1,7 +1,7 @@
 ### readfile-sops.txtar
 
 env SOPS_AGE_KEY_FILE=$WORK/keys.txt
-exec kuegen
+exec cuegen
 stdout 'some secret data'
 -- file.cue --
 package kube

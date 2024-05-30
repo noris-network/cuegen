@@ -1,6 +1,6 @@
 ### export-path.txtar
 
-exec kuegen
+exec cuegen
 stdout 'c: ccc'
 -- cuegen.cue --
 cuegen: apiVersion: "v1alpha3"

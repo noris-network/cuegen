@@ -1,6 +1,6 @@
 ### readmap-bytes.txtar
 
-exec kuegen
+exec cuegen
 stdout 'dHdlbnR5dGhyZWU='
 stdout 'Zm9ydHl0d28='
 -- cue.mod/module.cue --
