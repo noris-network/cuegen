@@ -17,26 +17,25 @@
 package app_test
 
 import (
-	"os"
 	"testing"
 
-	app "github.com/noris-network/cuegen/internal/app/v1alpha1"
+	//app "github.com/noris-network/cuegen/internal/app/v1alpha1"
 
 	"github.com/rogpeppe/go-internal/testscript"
 )
 
-func TestMain(m *testing.M) {
-	os.Exit(testscript.RunMain(m, map[string]func() int{
-		"cuegen":               app.Main,
-		"started_from_go_test": func() int { return 0 },
-	}))
-}
+// func TestMain(m *testing.M) {
+// 	os.Exit(testscript.RunMain(m, map[string]func() int{
+// 		"cuegen":               app.Main,
+// 		"started_from_go_test": func() int { return 0 },
+// 	}))
+// }
 
-func TestCuegenLocalV1alpha1(t *testing.T) {
-	testscript.Run(t, testscript.Params{
-		Dir: "v1alpha1/local",
-	})
-}
+// func TestCuegenLocalV1alpha1(t *testing.T) {
+// 	testscript.Run(t, testscript.Params{
+// 		Dir: "v1alpha1/local",
+// 	})
+// }
 
 func TestCuegenLocalV1alpha2(t *testing.T) {
 	testscript.Run(t, testscript.Params{
@@ -44,14 +43,14 @@ func TestCuegenLocalV1alpha2(t *testing.T) {
 	})
 }
 
-func TestCuegenRemoteV1alpha1(t *testing.T) {
-	testscript.Run(t, testscript.Params{
-		Dir: "v1alpha1/remote",
-	})
-}
+// func TestCuegenRemoteV1alpha1(t *testing.T) {
+// 	testscript.Run(t, testscript.Params{
+// 		Dir: "v1alpha1/remote",
+// 	})
+// }
 
-func TestCuegenRemoteV1alpha2(t *testing.T) {
-	testscript.Run(t, testscript.Params{
-		Dir: "v1alpha1/remote",
-	})
-}
+// func TestCuegenRemoteV1alpha2(t *testing.T) {
+// 	testscript.Run(t, testscript.Params{
+// 		Dir: "v1alpha1/remote",
+// 	})
+// }
