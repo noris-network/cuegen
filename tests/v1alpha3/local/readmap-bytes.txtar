@@ -1,0 +1,17 @@
+### readmap-bytes.txtar
+
+exec kuegen
+stdout 'dHdlbnR5dGhyZWU='
+stdout 'Zm9ydHl0d28='
+-- cue.mod/module.cue --
+module: "example.com/foo@v0"
+language: 	version: "v0.9.0"
+-- data.yaml --
+foo: twentythree
+bar: fortytwo
+-- file.cue --
+package foo
+
+objects: [{a: b: {
+	c: {} @readmap(data.yaml=bytes)
+}}]
