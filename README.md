@@ -32,6 +32,7 @@ in this repository (in that order) are good starting points.*
       - [with file Attribute value](#with-file-attribute-value)
       - [with directory Attribute value](#with-directory-attribute-value)
   - [Order Workaround](#order-workaround)
+  - [0.15.0 Pre Releases](#0150-pre-releases)
   - [Changelog](#changelog)
 
 ## Features
@@ -189,6 +190,19 @@ Load all files from directory `scripts` as key/values into `configMap.scripts.da
 ## Order Workaround
 Until [issue 2555][issue2555] is resolved in CUE, there is a [temporary workaround](examples/workaround/).
 
+## 0.15.0 Pre Releases
+
+`0.15.0-alpha.1` is the first pre-release in the 0.15.0 series. It's based on cue v0.9.0-alpha.5,
+so cue module support has landed! Cuegen "components" will be disabled when the new cuegen behaviour
+is enabled by setting `apiVersion` to "v1alpha3". All options in `cuegen.cue` files, except 
+`cuegen.spec.export`, which is the new `objectsPath`, are gone for now. So a minimal `cuegen.cue` 
+file, with the default export path of `objects`, could be
+
+    cuegen: apiVersion: "v1alpha3"
+
+All 0.15.0 pre releases, and also later releases will be backwards compatible, at least until release 
+1.0.0.
+
 ## Changelog
 
   * `v0.1.0`  - Initial release
@@ -219,6 +233,7 @@ Until [issue 2555][issue2555] is resolved in CUE, there is a [temporary workarou
   * `v0.14.x` - "silent release" of v1alpha2 schema...
   * `v0.14.4` - No code changes, bump cue version to 0.8.0
   * `v0.14.5` - No code changes, bump cue version to 0.8.1
+  * `v0.14.5` - No code changes, bump cue version to 0.8.2
 
 [CUE]:         https://cuelang.org
 [SOPS]:        https://github.com/mozilla/sops
