@@ -200,6 +200,12 @@ file, with the default export path of `objects`, could be
 
     cuegen: apiVersion: "v1alpha3"
 
+When no cuegen specific attributes are used, executing `cuegen` in some cue directory should produce
+the same output as
+    
+    cue export -e objects --out yaml | yq '.[] | split_doc'
+
+
 All 0.15.0 pre releases, and also later releases will be backwards compatible, at least until release 
 1.0.0.
 
