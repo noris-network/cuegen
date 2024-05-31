@@ -233,7 +233,7 @@ All 0.15.0 pre releases, and also later releases will be backwards compatible, a
   * `v0.14.x` - "silent release" of v1alpha2 schema...
   * `v0.14.4` - No code changes, bump cue version to 0.8.0
   * `v0.14.5` - No code changes, bump cue version to 0.8.1
-  * `v0.14.5` - No code changes, bump cue version to 0.8.2
+  * `v0.14.6` - No code changes, bump cue version to 0.8.2
 
 [CUE]:         https://cuelang.org
 [SOPS]:        https://github.com/mozilla/sops
