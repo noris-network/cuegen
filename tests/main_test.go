@@ -20,14 +20,14 @@ import (
 	"os"
 	"testing"
 
-	app "github.com/noris-network/cuegen/internal/app/v1alpha1"
-
+	v1alpha3 "github.com/noris-network/cuegen/internal/app/v1alpha3"
 	"github.com/rogpeppe/go-internal/testscript"
 )
 
 func TestMain(m *testing.M) {
 	os.Exit(testscript.RunMain(m, map[string]func() int{
-		"cuegen":               app.Main,
+		//"cuegen":               app.Main,
+		"cuegen":               v1alpha3.Main,
 		"started_from_go_test": func() int { return 0 },
 	}))
 }
@@ -40,7 +40,7 @@ func TestCuegenLocalV1alpha1(t *testing.T) {
 
 func TestCuegenLocalV1alpha2(t *testing.T) {
 	testscript.Run(t, testscript.Params{
-		Dir: "v1alpha2/local",
+		Dir: "v1alpha3/local",
 	})
 }
 

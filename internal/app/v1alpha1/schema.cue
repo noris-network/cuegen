@@ -7,9 +7,4 @@ cuegen: close({
 	components?: [string, ...]
 	rootIndex?:             >0 & <128
 	enableOrderWorkaround?: bool
-	// allow v1alpha2...
-	apiVersion: *"" | string
-	kind:       *"" | string
-	metadata: {}
-	spec: {}
 })

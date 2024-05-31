@@ -1,0 +1,11 @@
+### export-path.txtar
+
+exec cuegen
+stdout 'c: ccc'
+-- cuegen.cue --
+cuegen: apiVersion: "v1alpha3"
+cuegen: spec: export: "myobjects"
+-- file.cue --
+package foo
+
+myobjects: [{a: b: {c: "ccc"}}]

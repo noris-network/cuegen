@@ -1,0 +1,22 @@
+### read-multi.txtar
+
+exec cuegen
+stdout 'bar: 42'
+stdout 'foo: 23'
+stdout 'baz: twentythree'
+-- cue.mod/module.cue --
+module: "example.com/foo@v0"
+language: 	version: "v0.9.0"
+-- data.json --
+{
+    "baz": "twentythree"
+}
+-- data.yaml --
+foo: 23
+bar: 42
+-- file.cue --
+package foo
+
+objects: [{a: b: {
+	c: {} @read(data.yaml, data.json)
+}}]

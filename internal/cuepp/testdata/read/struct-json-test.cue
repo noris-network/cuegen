@@ -1,1 +1,0 @@
-struct-yaml-test.cue

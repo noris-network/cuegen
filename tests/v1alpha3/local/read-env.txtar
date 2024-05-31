@@ -1,0 +1,17 @@
+### read-env.txtar
+
+exec cuegen
+stdout 'BAR: "42'
+stdout 'FOO: "23'
+-- cue.mod/module.cue --
+module: "example.com/foo@v0"
+language: 	version: "v0.9.0"
+-- data.env --
+FOO=23
+BAR=42
+-- file.cue --
+package foo
+
+objects: [{a: b: {
+	c: {} @read(data.env)
+}}]
