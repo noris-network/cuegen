@@ -25,7 +25,7 @@ jobs:
 
       - name: Test Examples
         run: |
-          go build -o cuegen .
+          go build -o cuegen ./cmd/cuegen
           export PATH=$PWD:$PATH
           ./scripts/test-all-examples.sh
           rm cuegen
