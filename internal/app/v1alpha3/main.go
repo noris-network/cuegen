@@ -36,7 +36,7 @@ const (
 //go:embed schema.cue
 var configSchema []byte
 
-var Build = "dev-build"
+var Build string
 
 func Main() int {
 
