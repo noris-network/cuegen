@@ -193,7 +193,7 @@ Until [issue 2555][issue2555] is resolved in CUE, there is a [temporary workarou
 ## 0.15.0 Pre Releases
 
 `0.15.0-alpha.1` is the first pre-release in the 0.15.0 series. It's based on cue v0.9.0-alpha.5,
-so cue module support has landed! Cuegen "components" will be disabled when the new cuegen behaviour
+so [cue module support][modules] has landed! Cuegen "components" will be disabled when the new cuegen behaviour
 is enabled by setting `apiVersion` to "v1alpha3". All options in `cuegen.cue` files, except 
 `cuegen.spec.export`, which is the new `objectsPath`, are gone for now. So a minimal `cuegen.cue` 
 file, with the default export path of `objects`, could be
@@ -252,3 +252,4 @@ All 0.15.0 pre releases, and also later releases will be backwards compatible, a
 [cfgschema]:   internal/app/schema.cue
 [gh2243]:      https://github.com/cue-lang/cue/issues/2243
 [issue2555]:   https://github.com/cue-lang/cue/issues/2555
+[modules]:     https://cuelang.org/docs/reference/modules/
