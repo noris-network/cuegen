@@ -57,12 +57,8 @@ func findAttributes(value cue.Value) pathValueAttributes {
 			subPath, _ := strings.CutPrefix(filename, "cg.ChartRoot"+"/")
 			cuePath := v.Path().String()
 			attrsContents := ""
-			//for _, attr := range attrs {
-			//	attrsContents = attrsContents + attr.Contents()
-			//}
 			seenKey := fmt.Sprintf("%v:%v:%v", subPath, v.Pos().Offset(), attrsContents)
 			if seen[seenKey] {
-				fmt.Printf("**SEEN** %v\n", seenKey)
 				return true
 			}
 			paths[cuePath] = valueAttributes{
@@ -73,47 +69,13 @@ func findAttributes(value cue.Value) pathValueAttributes {
 		}
 		return true
 	}, func(v cue.Value) {})
-
-	// ///////////
-	// for cuePath, valAttr := range paths {
-	// 	fmt.Printf(">>>>>>>>>>>> %v %v\n", cuePath, valAttr)
-	// 	value = value.FillPath(cue.ParsePath(cuePath), "XXXXX!")
-	// }
-	// ///////////
-	// printJSON(paths)
 	return paths
 }
 
-var cg_Debug = !true
-
-// //////////////////
-// processAttributes processes all attributes that are known to cuegen (see cuegenAttrs)
 func processAttributes(value cue.Value, attrs pathValueAttributes) (cue.Value, error) {
-	//if cg_Debug {
-	//log.Printf("ProcessAttributes:")
-	//}
 	for cuePath, valAttr := range attrs {
-		if cg_Debug {
-			log.Printf("    ---")
-			log.Printf("    CuePath:    %v", cuePath)
-			log.Printf("    SubPath:    %v", valAttr.subPath)
-		}
-
-		// for name, component := range cg.Components {
-		// 	prefix := fmt.Sprintf(overlayFmt, name, "")
-		// 	if strings.Contains(valAttr.subPath, prefix) {
-		// 		if cg.Debug {
-		// 			log.Printf("    load from:  %v", name)
-		// 		}
-		// 		selectedFs = component
-		// 		break
-		// 	}
-		// }
 		bpath := filepath.Dir(valAttr.subPath)
 		for _, attr := range valAttr.attrs {
-			if cg_Debug {
-				log.Printf("    Attribute:  @%v(%v)", attr.Name(), attr.Contents())
-			}
 			if attr.Contents() == "" {
 				return cue.Value{}, fmt.Errorf("empty attribute: @%v() at <%s>", attr.Name(), cuePath)
 			}
@@ -133,18 +95,12 @@ func processAttributes(value cue.Value, attrs pathValueAttributes) (cue.Value, e
 			}
 		}
 	}
-	if cg_Debug {
-		log.Printf("---")
-	}
 	return value, nil
 }
-
-///
 
 func attrReadFile(value cue.Value, path string, attr cue.Attribute, bpath string) (cue.Value, error) {
 	alldata := ""
 	bytesFlag := ""
-	//attr.Pos
 	for i := 0; i < attr.NumArgs(); i++ {
 		file, flag := attr.Arg(i)
 		data, err := readFile(filepath.Join(bpath, file))
@@ -163,7 +119,7 @@ func attrReadFile(value cue.Value, path string, attr cue.Attribute, bpath string
 			alldata = alldata + data
 		}
 	}
-	if asBytes(path, bytesFlag) {
+	if asBytes(bytesFlag) {
 		value = value.FillPath(cue.ParsePath(path), []byte(alldata))
 	} else {
 		value = value.FillPath(cue.ParsePath(path), alldata)
@@ -171,7 +127,6 @@ func attrReadFile(value cue.Value, path string, attr cue.Attribute, bpath string
 	return value, nil
 }
 
-// /
 func attrRead(value cue.Value, cuePath string, attr cue.Attribute, bpath string) (cue.Value, error) {
 	for i := 0; i < attr.NumArgs(); i++ {
 		item, _ := attr.Arg(i)
@@ -185,14 +140,8 @@ func attrRead(value cue.Value, cuePath string, attr cue.Attribute, bpath string)
 }
 
 func readFile(file string) (string, error) {
-	if cg_Debug {
-		log.Printf("    * readFile:   %v", file)
-	}
-
-	// read file from the component's filesystem
 	data, err := os.ReadFile(file)
 	if err != nil {
-		log.Printf("    filesystem content: %v", err)
 		return "", fmt.Errorf("readFile: %q: %v", file, err)
 	}
 
@@ -200,7 +149,7 @@ func readFile(file string) (string, error) {
 	var probes []string
 	stringData := string(data)
 
-	// // guess file format from extension
+	// guess file format from extension
 	switch filepath.Ext(file) {
 	case ".env":
 		format = formats.Dotenv
@@ -224,9 +173,6 @@ func readFile(file string) (string, error) {
 		allMatched = allMatched && strings.Contains(stringData, probe)
 	}
 	if allMatched {
-		if cg_Debug {
-			log.Printf("                  (sops encrypted)")
-		}
 		plaintext, err := decrypt.DataWithFormat(data, format)
 		if err == nil {
 			return string(plaintext), nil
@@ -237,7 +183,6 @@ func readFile(file string) (string, error) {
 	return stringData, nil
 }
 
-// /
 func attrReadMap(value cue.Value, cuePath string, attr cue.Attribute, bpath string) (cue.Value, error) {
 	for i := 0; i < attr.NumArgs(); i++ {
 		item, suffix := attr.Arg(i)
@@ -249,7 +194,7 @@ func attrReadMap(value cue.Value, cuePath string, attr cue.Attribute, bpath stri
 			pathItems := cue.ParsePath(fmt.Sprintf("%v.%q", cuePath, k))
 			switch stringValue := v.(type) {
 			case string:
-				if asBytes(cuePath, suffix) {
+				if asBytes(suffix) {
 					value = value.FillPath(pathItems, []byte(stringValue))
 				} else {
 					value = value.FillPath(pathItems, stringValue)
@@ -291,28 +236,8 @@ func readPath(path string) (map[string]any, error) {
 	return nil, fmt.Errorf("readPath: can't handle %q", path)
 }
 
-//
-
-func asBytes(cuePath, suffix string) bool {
-	if suffix == "bytes" {
-		return true
-	}
-	//secretPathItems := strings.Split(cg.SecretDataPath, ".")
-	//pathItems := strings.Split(cuePath, ".")
-	//asBytes := true
-	//if len(secretPathItems) > len(pathItems) {
-	//	asBytes = false
-	//}
-	//if asBytes && suffix != "bytes" {
-	//	for n, key := range secretPathItems {
-	//		if key != "*" && key != pathItems[n] {
-	//			asBytes = false
-	//			break
-	//		}
-	//	}
-	//}
-	//return asBytes
-	return false
+func asBytes(suffix string) bool {
+	return suffix == "bytes"
 }
 
 func readStructFile(file string) (map[string]any, error) {
@@ -354,18 +279,3 @@ var (
 		"sops_version", "sops_unencrypted_suffix", "sops_lastmodified", "sops_mac",
 	}
 )
-
-////////////////////
-
-//lint:ignore U1000 (dev-only)
-func printJSON(i interface{}, prefix ...string) {
-	pre := fmt.Sprintf("%T>>>", i)
-	if len(prefix) == 1 {
-		pre = prefix[0] + ">"
-	}
-	data, err := json.MarshalIndent(i, pre+"  ", "  ")
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println(pre + "  " + string(data))
-}

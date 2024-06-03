@@ -38,7 +38,7 @@ func TestCuegenLocalV1alpha1(t *testing.T) {
 	})
 }
 
-func TestCuegenLocalV1alpha2(t *testing.T) {
+func TestCuegenLocalV1alpha3(t *testing.T) {
 	testscript.Run(t, testscript.Params{
 		Dir: "v1alpha3/local",
 	})
