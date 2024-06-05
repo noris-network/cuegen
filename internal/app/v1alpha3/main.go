@@ -37,6 +37,7 @@ const (
 var configSchema []byte
 
 var Build string
+var debugLog = os.Getenv("CUEGEN_DEBUG") == "true"
 
 func Main() int {
 
@@ -46,6 +47,8 @@ func Main() int {
 		"check current working directory for cuegen.{yaml,cue} (for cmp detection)")
 
 	flag.Parse()
+
+	path := "."
 
 	switch {
 
@@ -65,10 +68,7 @@ func Main() int {
 
 	// chdir
 	case len(os.Args) == 2 && (strings.HasPrefix(os.Args[1], "./") || strings.HasPrefix(os.Args[1], "../") || strings.HasPrefix(os.Args[1], "/")):
-		if err := os.Chdir(os.Args[1]); err != nil {
-			fmt.Println(err)
-			return 1
-		}
+		path = os.Args[1]
 
 	// fallback
 	default:
@@ -86,7 +86,7 @@ func Main() int {
 	}
 
 	// exec
-	if err := cuegen.Exec(config); err != nil {
+	if err := cuegen.Exec(config, path); err != nil {
 		fmt.Printf("exec: %v\n", err)
 		return 1
 	}
@@ -129,8 +129,8 @@ func configure() (cuegen.Cuegen, error) {
 }
 
 func fallbackToV1Alpha1() {
-	if os.Getenv("CUEGEN_DEBUG") == "true" {
-		fmt.Println("@@@@@@@@@@@@ fallback to v1alpha1 @@@@@@@@@@@@")
+	if debugLog {
+		fmt.Println("#@@@ fallback to v1alpha1")
 	}
 	os.Exit(v1alpha1.Main())
 }

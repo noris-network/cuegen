@@ -50,7 +50,9 @@ var Default = Cuegen{
 	Spec:       Spec{Export: "objects"},
 }
 
-func Exec(config Cuegen) error {
+var debugLog = os.Getenv("CUEGEN_DEBUG") == "true"
+
+func Exec(config Cuegen, path string) error {
 
 	// new context
 	ctx := cuecontext.New(cuecontext.EvaluatorVersion(cuecontext.EvalDefault))
@@ -62,7 +64,7 @@ func Exec(config Cuegen) error {
 	}
 
 	// only load one instance
-	instance := load.Instances([]string{"."}, &loadConfig)[0]
+	instance := load.Instances([]string{path}, &loadConfig)[0]
 	if instance.Err != nil {
 		return fmt.Errorf("load instance: %v", instance.Err)
 	}

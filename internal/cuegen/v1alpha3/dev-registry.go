@@ -30,6 +30,9 @@ type DevRegistry struct {
 }
 
 func NewDevRegistry(root string) modconfig.Registry {
+	if debugLog {
+		fmt.Printf("#@@@ NewDevRegistry:  %v\n", root)
+	}
 	registry, err := modconfig.NewRegistry(nil)
 	if err != nil {
 		panic(err)
@@ -40,7 +43,9 @@ func NewDevRegistry(root string) modconfig.Registry {
 func (r DevRegistry) Fetch(ctx context.Context, m module.Version) (module.SourceLoc, error) {
 	loc, err := r.getDevLoc(m)
 	if err != nil {
-		//fmt.Printf("getLoc: %v\n", err)
+		if debugLog {
+			fmt.Printf("#@@@ getLoc %v: %v\n", m, err)
+		}
 		loc, err = r.registry.Fetch(ctx, m)
 	}
 	return loc, err
@@ -55,7 +60,9 @@ func (r DevRegistry) getDevLoc(m module.Version) (module.SourceLoc, error) {
 	if !fileInfo.IsDir() {
 		return module.SourceLoc{}, fmt.Errorf("%v is not a dir", path)
 	}
-	//fmt.Printf("@@@ %v    ==> %v\n", m.String(), path)
+	if debugLog {
+		fmt.Printf("#@@@ %v  ==>  %v\n", m.String(), path)
+	}
 	return module.SourceLoc{FS: module.OSDirFS(path), Dir: "."}, nil
 }
 
