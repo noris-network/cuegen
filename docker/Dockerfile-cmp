@@ -7,6 +7,7 @@ RUN         sed "s/VERSION/$VERSION/g" docker/plugin.yaml > plugin.yaml
 RUN         curl -sfL https://github.com/mikefarah/yq/releases/download/v4.44.1/yq_linux_amd64 -o /tmp/yq && chmod 755 /tmp/yq
 
 FROM        gcr.io/distroless/static-debian12
+ENV         CUE_CACHE_DIR=/tmp
 COPY        --from=builder /tmp/yq                  /bin/yq
 COPY        --from=builder /go/src/app/cuegen       /bin/cuegen
 COPY        --from=builder /go/src/app/plugin.yaml  /home/argocd/cmp-server/config/plugin.yaml
