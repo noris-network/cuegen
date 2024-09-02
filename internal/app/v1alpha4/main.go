@@ -18,13 +18,13 @@ import (
 	_ "embed"
 	"flag"
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 	"runtime/debug"
 	"strings"
 
 	v1alpha1 "github.com/noris-network/cuegen/internal/app/v1alpha1"
-	cuegen "github.com/noris-network/cuegen/internal/cuegen/v1alpha3"
+	cuegen "github.com/noris-network/cuegen/internal/cuegen/v1alpha4"
 	"github.com/nxcc/cueconfig"
 )
 
@@ -36,17 +36,23 @@ const (
 //go:embed schema.cue
 var configSchema []byte
 
-var Build string
-var debugLog = os.Getenv("CUEGEN_DEBUG") == "true"
+var (
+	Build         string
+	debugLog      = os.Getenv("CUEGEN_DEBUG") == "true"
+	cuegenWrapper = os.Getenv("CUEGEN_SKIP_DECRYPT") != "true"
+)
 
 func Main() int {
-
 	flagIsCuegenDir := false
 
 	flag.BoolVar(&flagIsCuegenDir, "is-cuegen-dir", false,
 		"check current working directory for cuegen.{yaml,cue} (for cmp detection)")
 
 	flag.Parse()
+
+	if debugLog {
+		slog.SetLogLoggerLevel(slog.LevelDebug)
+	}
 
 	path := "."
 
@@ -62,11 +68,11 @@ func Main() int {
 		printVersion()
 		return 0
 
-	// no chdir
+	// path = .
 	case len(os.Args) == 1,
 		len(os.Args) == 2 && (os.Args[1] == "." || os.Args[1] == "./"):
 
-	// chdir
+	// path != .
 	case len(os.Args) == 2 && (strings.HasPrefix(os.Args[1], "./") || strings.HasPrefix(os.Args[1], "../") || strings.HasPrefix(os.Args[1], "/")):
 		path = os.Args[1]
 
@@ -81,13 +87,13 @@ func Main() int {
 		fmt.Printf("configure: %v\n", err)
 		return 1
 	}
-	if config.ApiVersion != cuegen.V1Alpha3 {
+	if config.ApiVersion == cuegen.V1Alpha1 {
 		fallbackToV1Alpha1()
 	}
 
-	// exec
+	// exec V1Alpha4
 	if err := cuegen.Exec(config, path); err != nil {
-		fmt.Printf("exec: %v\n", err)
+		fmt.Printf("%v\n", err)
 		return 1
 	}
 
@@ -107,7 +113,8 @@ func printVersion() {
 	fmt.Printf("cuegen version %v\n", Build)
 	bi, ok := debug.ReadBuildInfo()
 	if !ok {
-		log.Fatalln("Failed to read build info")
+		slog.Error("failed to read build info")
+		os.Exit(1)
 	}
 	for _, dep := range bi.Deps {
 		if dep.Path == "cuelang.org/go" {
@@ -120,9 +127,7 @@ func printVersion() {
 func configure() (cuegen.Cuegen, error) {
 	cfg := struct{ Cuegen cuegen.Cuegen }{}
 	if err := cueconfig.Load(cuegenCue, configSchema, nil, nil, &cfg); err != nil {
-		if os.IsNotExist(err) {
-			return cuegen.Default, nil
-		}
+		slog.Error("load cuegen.cue", "err", err)
 		return cuegen.Cuegen{}, err
 	}
 	return cfg.Cuegen, nil
@@ -130,7 +135,7 @@ func configure() (cuegen.Cuegen, error) {
 
 func fallbackToV1Alpha1() {
 	if debugLog {
-		fmt.Println("#@@@ fallback to v1alpha1")
+		slog.Debug("fallback to v1alpha1")
 	}
 	os.Exit(v1alpha1.Main())
 }

@@ -1,0 +1,57 @@
+### sops-with-template.txtar
+
+env SOPS_AGE_KEY_FILE=$WORK/keys.txt
+env CUEGEN_WRAPPED_EXECUTABLE=find
+
+exec find
+! stdout .cuegen-backup-.+~secret.txt
+stdout secret.txt$
+stdout secret.txt.sops
+
+exec /tmp/cuegen-v1alpha4
+stdout .cuegen-backup-.+~secret.txt
+stdout secret.txt$
+stdout secret.txt.sops
+
+exec find
+! stdout .cuegen-backup-.+~secret.txt
+stdout secret.txt$
+stdout secret.txt.sops
+
+exec cat secret.txt
+stdout 'no secrets here'
+-- file.cue --
+@extern(embed)
+
+package kube
+
+objects: [{text: _ @embed(file="secret.txt")}]
+-- keys.txt --
+# * * *  this key is just for testing, never use it for anything else  * * *
+AGE-SECRET-KEY-14QUHLE5A6UNSKNYXLF5ZA26P3NCFX8P68JQ066T7VJ6JW5G8FHWQN4HAUQ
+# * * *  this key is just for testing, never use it for anything else  * * *
+
+-- secret.txt --
+no secrets here
+-- secret.txt.sops --
+{
+	"data": "ENC[AES256_GCM,data:NDgRD9FS0p0M5WKnhUFtv0U=,iv:PcUAVThKzEz0FmgG610GoHPMMuG0nzIOiTfrfsf9AK4=,tag:NTVqjyfshEBzctAMVyZowg==,type:str]",
+	"sops": {
+		"kms": null,
+		"gcp_kms": null,
+		"azure_kv": null,
+		"hc_vault": null,
+		"age": [
+			{
+				"recipient": "age13643rcqprsmy33ff4rgj2strpyhxgzu3x6lvyrzvhsqqjvmk9d3qe59qn8",
+				"enc": "-----BEGIN AGE ENCRYPTED FILE-----\nYWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBuMm1wR0hTUHBYZlVjczNU\nRWxxMFhpbTlZQVB5aFZBYzd0VVE4N0JmWnlZCitFdkxHazhXTDFkbUFyNHp0bStI\nVGx3dC9Yc0hrS3lhakRRdUg3TzA4TXMKLS0tIEwrWWZzbFEydHVUc3RVS3NKQ3lL\nSC8rWm5XYTFLUXdURXJDL08yN00vVE0K1oqiXcBR7tZh342LBReJYrVTxekJ/sq2\nQTE4oweuyjtOp55wSUW8cSiIw7uABHj93zE0OTn9EEv/5aDYYN53AA==\n-----END AGE ENCRYPTED FILE-----\n"
+			}
+		],
+		"lastmodified": "2023-01-06T13:55:03Z",
+		"mac": "ENC[AES256_GCM,data:jbj9mfdj0/cBrtZr8biapIGh7qGWdgpVs6JkXwN62Wa2VEtI00CZtJpXazVyEkpw7o1+Q6eOpE+rfLPm18IbE5blyrXFKWY7reptkGdVDmI38mBvzRsirYBdTWM27ufJElFaYdLQVyQ+d1vGHdl3NxQAF5DLg9lGlPnF6jlHq58=,iv:wJvOUhC/7b1ZTeneXKcYWSFHNdjpFEqVd6zwv7JfLko=,tag:2AFEkXUA1fMPt7OelOO8Eg==,type:str]",
+		"pgp": null,
+		"unencrypted_suffix": "_unencrypted",
+		"version": "3.7.3"
+	}
+}
+

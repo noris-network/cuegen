@@ -1,20 +1,20 @@
-### readfile-sops.txtar
+### sops1-decrypt.txtar
 
 env SOPS_AGE_KEY_FILE=$WORK/keys.txt
-exec cuegen
+exec /tmp/cuegen-v1alpha4
 stdout 'some secret data'
 -- file.cue --
+@extern(embed)
+
 package kube
 
-objects: [{a: b: {
-	c: *"default" | string @readfile(secret.txt=trim)
-}}]
+objects: [{text: _ @embed(file="secret.txt")}]
 -- keys.txt --
 # * * *  this key is just for testing, never use it for anything else  * * *
 AGE-SECRET-KEY-14QUHLE5A6UNSKNYXLF5ZA26P3NCFX8P68JQ066T7VJ6JW5G8FHWQN4HAUQ
 # * * *  this key is just for testing, never use it for anything else  * * *
 
--- secret.txt --
+-- secret.txt.sops --
 {
 	"data": "ENC[AES256_GCM,data:NDgRD9FS0p0M5WKnhUFtv0U=,iv:PcUAVThKzEz0FmgG610GoHPMMuG0nzIOiTfrfsf9AK4=,tag:NTVqjyfshEBzctAMVyZowg==,type:str]",
 	"sops": {
