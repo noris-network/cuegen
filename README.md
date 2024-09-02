@@ -195,11 +195,10 @@ Cuegen `0.15.0` is based on cue v0.10.0. When `apiVersion` is set to "v1alpha4",
 is removed in favour for cue [native embedding][cue-embed]. Right now sops encrypted files need to be
 named like `<filename>.sops.<ext>` for formats supported by sops, otherwise like `<filename>.<ext>.sops`.
 They will be temporarily decrypted to files named like `<filename>.<ext>`, and removed again after Yaml
-output was generated.
-    
-    cue export -e objects --out yaml | yq '.[] | split_doc'
+output was generated [(usage example)][eg-embed].
 
-All releases will be backwards compatible to current `cuegen` behaviour, at least until release 1.0.0.
+All future releases at least until release 1.0.0 will be backwards compatible to current 
+non-experimental `cuegen` behaviour.
 
 ## Changelog
 
@@ -232,11 +231,13 @@ All releases will be backwards compatible to current `cuegen` behaviour, at leas
   * `v0.14.4` - No code changes, bump cue version to 0.8.0
   * `v0.14.5` - No code changes, bump cue version to 0.8.1
   * `v0.14.6` - No code changes, bump cue version to 0.8.2
+  * `v0.15.0` - Introduce "embed experiment'
 
 [CUE]:         https://cuelang.org
 [SOPS]:        https://github.com/mozilla/sops
 [k8stut]:      https://cuelang.org/docs/tutorials/
 [eg]:          examples/
+[eg-embed]:    examples/embed-experiment
 [rel]:         https://github.com/noris-network/cuegen/releases/latest
 [cmp]:         https://argo-cd.readthedocs.io/en/stable/operator-manual/config-management-plugins/#sidecar-plugin
 [cuegen-cmp]:  https://hub.docker.com/r/nxcc/cuegen-cmp
