@@ -110,12 +110,20 @@ func decryptFile(path string) error {
 		wlog.Warn("found unhandled extension", "ext", ext)
 		return nil
 	}
+
 	nonSopsPath := toNonSopsPath(path)
 	if nonSopsPath == "" {
 		wlog.Warn("skip", "file", path)
 		return nil
 	}
-	_, err := os.Stat(nonSopsPath)
+
+	wlog.Debug("decrypt", "source", path, "target", nonSopsPath)
+	cleartext, err := decrypt.File(path, ext)
+	if err != nil {
+		return fmt.Errorf("%v: can not open decrypt file: %v", path, err)
+	}
+
+	_, err = os.Stat(nonSopsPath)
 	if err == nil {
 		err := backupFile(nonSopsPath)
 		if err != nil {
@@ -125,11 +133,6 @@ func decryptFile(path string) error {
 		restoreAfterRun[nonSopsPath] = ""
 	}
 
-	wlog.Debug("decrypt", "source", path, "target", nonSopsPath)
-	cleartext, err := decrypt.File(path, ext)
-	if err != nil {
-		return fmt.Errorf("%v: can not open decrypt file: %v", path, err)
-	}
 	f, err := os.Create(nonSopsPath)
 	if err != nil {
 		return fmt.Errorf("%v: %v", path, err)

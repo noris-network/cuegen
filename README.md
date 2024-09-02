@@ -32,7 +32,7 @@ in this repository (in that order) are good starting points.*
       - [with file Attribute value](#with-file-attribute-value)
       - [with directory Attribute value](#with-directory-attribute-value)
   - [Order Workaround](#order-workaround)
-  - [0.15.0 Pre Releases](#0150-pre-releases)
+  - [0.15.0 Embed Experiment](#0150-embed-experiment)
   - [Changelog](#changelog)
 
 ## Features
@@ -190,24 +190,16 @@ Load all files from directory `scripts` as key/values into `configMap.scripts.da
 ## Order Workaround
 Until [issue 2555][issue2555] is resolved in CUE, there is a [temporary workaround](examples/workaround/).
 
-## 0.15.0 Pre Releases
-
-`0.15.0-alpha.1` is the first pre-release in the 0.15.0 series. It's based on cue v0.9.0-alpha.5,
-so [cue module support][modules] has landed! Cuegen "components" will be disabled when the new cuegen behaviour
-is enabled by setting `apiVersion` to "v1alpha3". All options in `cuegen.cue` files, except 
-`cuegen.spec.export`, which is the new `objectsPath`, are gone for now. So a minimal `cuegen.cue` 
-file, with the default export path of `objects`, could be
-
-    cuegen: apiVersion: "v1alpha3"
-
-When no cuegen specific attributes are used, executing `cuegen` in some cue directory should produce
-the same output as
+## 0.15.0 Embed Experiment
+Cuegen `0.15.0` is based on cue v0.10.0. When `apiVersion` is set to "v1alpha4", cue attribute handling
+is removed in favour for cue [native embedding][cue-embed]. Right now sops encrypted files need to be
+named like `<filename>.sops.<ext>` for formats supported by sops, otherwise like `<filename>.<ext>.sops`.
+They will be temporarily decrypted to files named like `<filename>.<ext>`, and removed again after Yaml
+output was generated.
     
     cue export -e objects --out yaml | yq '.[] | split_doc'
 
-
-All 0.15.0 pre releases, and also later releases will be backwards compatible, at least until release 
-1.0.0.
+All releases will be backwards compatible to current `cuegen` behaviour, at least until release 1.0.0.
 
 ## Changelog
 
@@ -253,3 +245,4 @@ All 0.15.0 pre releases, and also later releases will be backwards compatible, a
 [gh2243]:      https://github.com/cue-lang/cue/issues/2243
 [issue2555]:   https://github.com/cue-lang/cue/issues/2555
 [modules]:     https://cuelang.org/docs/reference/modules/
+[cue-embed]:   https://cuelang.org/docs/howto/embed-files-in-cue-evaluation/

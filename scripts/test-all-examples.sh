@@ -40,6 +40,14 @@ cuegen https://github.com/nxcc/cuegen-remote-test.git | grep -q 'field1: test te
 cuegen "https://github.com/nxcc/cuegen-remote-test.git?ref=subpath#apps/app_b" | grep -q 'field1: test yaml 5678'
 echo "  OK"
 
+(
+    echo embed-experiment
+    cd embed-experiment
+    export CUE_EXPERIMENT=embed
+    cuegen | grep -q t0p53cr3t
+    CUEGEN_SKIP_DECRYPT=true cuegen | grep example-pass-123
+)
+
 # done
 
 if [[ $cleanup_demo_cue == 1 ]]; then
