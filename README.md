@@ -197,8 +197,11 @@ named like `<filename>.sops.<ext>` for formats supported by sops, otherwise like
 They will be temporarily decrypted to files named like `<filename>.<ext>`, and removed again after Yaml
 output was generated [(usage example)][eg-embed].
 
-All future releases at least until release 1.0.0 will be backwards compatible to current 
+All future releases at least until release 1.0.0 will be backwards compatible to current
 non-experimental `cuegen` behaviour.
+
+## 0.16.0
+Cuegen `0.16.0` will be released after `cue` v0.12.0 is out.
 
 ## Changelog
 
@@ -232,6 +235,7 @@ non-experimental `cuegen` behaviour.
   * `v0.14.5` - No code changes, bump cue version to 0.8.1
   * `v0.14.6` - No code changes, bump cue version to 0.8.2
   * `v0.15.0` - Introduce "embed experiment'
+  * `v0.15.1` - No code changes, bump cue version to 0.11.0
 
 [CUE]:         https://cuelang.org
 [SOPS]:        https://github.com/mozilla/sops
