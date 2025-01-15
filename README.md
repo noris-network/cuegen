@@ -236,6 +236,7 @@ Cuegen `0.16.0` will be released after `cue` v0.12.0 is out.
   * `v0.14.6` - No code changes, bump cue version to 0.8.2
   * `v0.15.0` - Introduce "embed experiment'
   * `v0.15.1` - No code changes, bump cue version to 0.11.0
+  * `v0.15.2` - No code changes, bump cue version to 0.11.1
 
 [CUE]:         https://cuelang.org
 [SOPS]:        https://github.com/mozilla/sops
