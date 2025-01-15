@@ -3,7 +3,7 @@ module github.com/noris-network/cuegen
 go 1.23
 
 require (
-	cuelang.org/go v0.11.0
+	cuelang.org/go v0.11.1
 	github.com/forensicanalysis/gitfs v0.2.2
 	github.com/getsops/sops/v3 v3.9.2
 	github.com/go-git/go-git/v5 v5.12.0
