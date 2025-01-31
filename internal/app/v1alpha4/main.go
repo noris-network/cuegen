@@ -24,7 +24,7 @@ import (
 	"strings"
 
 	v1alpha1 "github.com/noris-network/cuegen/internal/app/v1alpha1"
-	cuegen "github.com/noris-network/cuegen/internal/cuegen/v1alpha4"
+	v1alpha4 "github.com/noris-network/cuegen/internal/cuegen/v1alpha4"
 	"github.com/nxcc/cueconfig"
 )
 
@@ -87,14 +87,20 @@ func Main() int {
 		fmt.Printf("configure: %v\n", err)
 		return 1
 	}
-	if config.ApiVersion == cuegen.V1Alpha1 {
-		fallbackToV1Alpha1()
-	}
 
-	// exec V1Alpha4
-	if err := cuegen.Exec(config, path); err != nil {
-		fmt.Printf("%v\n", err)
-		return 1
+	switch config.ApiVersion {
+
+	case v1alpha4.V1Alpha1:
+		fallbackToV1Alpha1()
+
+	case v1alpha4.V1Alpha4:
+		if err := v1alpha4.Exec(config, path); err != nil {
+			fmt.Printf("%v\n", err)
+			return 1
+		}
+
+	default:
+		panic("apiVersion unknown")
 	}
 
 	return 0
@@ -124,11 +130,11 @@ func printVersion() {
 	}
 }
 
-func configure() (cuegen.Cuegen, error) {
-	cfg := struct{ Cuegen cuegen.Cuegen }{}
+func configure() (v1alpha4.Cuegen, error) {
+	cfg := struct{ Cuegen v1alpha4.Cuegen }{}
 	if err := cueconfig.Load(cuegenCue, configSchema, nil, nil, &cfg); err != nil {
 		slog.Error("load cuegen.cue", "err", err)
-		return cuegen.Cuegen{}, err
+		return v1alpha4.Cuegen{}, err
 	}
 	return cfg.Cuegen, nil
 }
