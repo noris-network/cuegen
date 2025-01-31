@@ -5,7 +5,7 @@ replace cuelang.org/go => github.com/nxcc/cue v0.0.0-20250130135615-97aa7fabbf60
 go 1.23
 
 require (
-	cuelang.org/go v0.11.1
+	cuelang.org/go v0.12.0
 	github.com/cue-exp/cueconfig v0.0.1
 	github.com/forensicanalysis/gitfs v0.2.2
 	github.com/getsops/sops/v3 v3.9.4

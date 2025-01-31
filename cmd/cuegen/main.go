@@ -4,8 +4,10 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"log/slog"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 
 	"github.com/cue-exp/cueconfig"
 	v1alpha4 "github.com/noris-network/cuegen/internal/app/v1alpha4"
@@ -17,9 +19,16 @@ const (
 	cueMod    = "cue.mod"
 )
 
+var build = "dev-build"
+
 func main() {
 	// argocd cmp check
 	cmpPluginCheck()
+
+	if len(os.Args) == 2 && os.Args[1] == "version" {
+		printVersion()
+		os.Exit(0)
+	}
 
 	// apiVersion below v1alpha5?
 	if !cuegenNgCheck() {
@@ -80,4 +89,19 @@ func cmpPluginCheck() {
 		fmt.Println(true)
 	}
 	os.Exit(0)
+}
+
+func printVersion() {
+	fmt.Printf("cuegen version %v\n", build)
+	bi, ok := debug.ReadBuildInfo()
+	if !ok {
+		slog.Error("failed to read build info")
+		os.Exit(1)
+	}
+	for _, dep := range bi.Deps {
+		if dep.Path == "cuelang.org/go" {
+			fmt.Printf("cue version %v\n", dep.Version)
+			break
+		}
+	}
 }
