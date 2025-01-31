@@ -201,7 +201,8 @@ All future releases at least until release 1.0.0 will be backwards compatible to
 non-experimental `cuegen` behaviour.
 
 ## 0.16.0
-Cuegen `0.16.0` will be released after `cue` v0.12.0 is out.
+Cuegen `0.16.0` introduces the new apiVersion "v1beta1", all alpha versions are now deprecated, but
+will still work at least until 2026.
 
 ## Changelog
 
@@ -237,6 +238,7 @@ Cuegen `0.16.0` will be released after `cue` v0.12.0 is out.
   * `v0.15.0` - Introduce "embed experiment'
   * `v0.15.1` - No code changes, bump cue version to 0.11.0
   * `v0.15.2` - No code changes, bump cue version to 0.11.1
+  * `v0.16.0` - new apiVersion "v1beta1", bump cue version to 0.12.0
 
 [CUE]:         https://cuelang.org
 [SOPS]:        https://github.com/mozilla/sops
