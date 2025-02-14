@@ -239,6 +239,7 @@ will still work at least until 2026.
   * `v0.15.1` - No code changes, bump cue version to 0.11.0
   * `v0.15.2` - No code changes, bump cue version to 0.11.1
   * `v0.16.0` - new apiVersion "v1beta1", bump cue version to 0.12.0
+  * `v0.16.1` - No code changes, bump deps
 
 [CUE]:         https://cuelang.org
 [SOPS]:        https://github.com/mozilla/sops
