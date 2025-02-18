@@ -1,6 +1,6 @@
 module github.com/noris-network/cuegen
 
-replace cuelang.org/go => github.com/nxcc/cue v0.0.0-20250130135615-97aa7fabbf60
+replace cuelang.org/go => github.com/nxcc/cue v0.0.0-20250218063334-d98d6f59ff92
 
 go 1.24
 
