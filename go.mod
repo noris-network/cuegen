@@ -9,7 +9,7 @@ require (
 	github.com/cue-exp/cueconfig v0.0.1
 	github.com/forensicanalysis/gitfs v0.2.2
 	github.com/getsops/sops/v3 v3.9.4
-	github.com/go-git/go-git/v5 v5.13.2
+	github.com/go-git/go-git/v5 v5.14.0
 	github.com/joho/godotenv v1.5.1
 	github.com/nxcc/cueconfig v0.0.1
 	github.com/rogpeppe/go-internal v1.14.1
@@ -84,7 +84,7 @@ require (
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/golang-jwt/jwt/v5 v5.2.1 // indirect
 	github.com/golang/groupcache v0.0.0-20241129210726-2c02b8208cf8 // indirect
-	github.com/google/go-cmp v0.6.0 // indirect
+	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/google/s2a-go v0.1.9 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.4 // indirect
@@ -133,7 +133,7 @@ require (
 	go.opentelemetry.io/otel/sdk v1.34.0 // indirect
 	go.opentelemetry.io/otel/sdk/metric v1.34.0 // indirect
 	go.opentelemetry.io/otel/trace v1.34.0 // indirect
-	golang.org/x/crypto v0.33.0 // indirect
+	golang.org/x/crypto v0.35.0 // indirect
 	golang.org/x/mod v0.23.0 // indirect
 	golang.org/x/net v0.35.0 // indirect
 	golang.org/x/oauth2 v0.26.0 // indirect
