@@ -2,7 +2,7 @@ module github.com/noris-network/cuegen
 
 replace cuelang.org/go => github.com/nxcc/cue v0.0.0-20250813151224-7c7d56ff0c32
 
-go 1.25
+go 1.25.0
 
 require (
 	cuelang.org/go v0.12.1
@@ -143,7 +143,7 @@ require (
 	golang.org/x/net v0.44.0 // indirect
 	golang.org/x/oauth2 v0.31.0 // indirect
 	golang.org/x/sync v0.17.0 // indirect
-	golang.org/x/sys v0.36.0 // indirect
+	golang.org/x/sys v0.42.0 // indirect
 	golang.org/x/term v0.35.0 // indirect
 	golang.org/x/text v0.29.0 // indirect
 	golang.org/x/time v0.13.0 // indirect
