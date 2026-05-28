@@ -243,6 +243,8 @@ will still work at least until 2026.
   * `v0.16.2` - Upgrade patched cue
   * `v0.16.3` - cue version 0.12.1
   * `v0.16.4` - No code changes, update Docker image
+  * `v0.16.5` - No code changes, bump deps
+  * `v0.16.6` - No code changes, bump deps
 
 [CUE]:         https://cuelang.org
 [SOPS]:        https://github.com/mozilla/sops
