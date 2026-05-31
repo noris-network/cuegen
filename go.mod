@@ -12,7 +12,7 @@ require (
 	github.com/go-git/go-git/v5 v5.19.1
 	github.com/joho/godotenv v1.5.1
 	github.com/nxcc/cueconfig v0.0.1
-	github.com/rogpeppe/go-internal v1.14.1
+	github.com/rogpeppe/go-internal v1.15.0
 	golang.org/x/exp v0.0.0-20260410095643-746e56fc9e2f
 	gopkg.in/yaml.v3 v3.0.1
 )
