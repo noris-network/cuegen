@@ -7,7 +7,7 @@ go 1.25.0
 require (
 	cuelang.org/go v0.12.1
 	github.com/cue-exp/cueconfig v0.0.1
-	github.com/forensicanalysis/gitfs v0.2.3
+	github.com/forensicanalysis/gitfs v0.2.4
 	github.com/getsops/sops/v3 v3.11.0
 	github.com/go-git/go-git/v5 v5.19.1
 	github.com/joho/godotenv v1.5.1
