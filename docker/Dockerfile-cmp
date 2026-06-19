@@ -1,4 +1,4 @@
-FROM        golang:1.26.3 as builder
+FROM        golang:1.26.4 as builder
 WORKDIR     /go/src/app
 ARG         VERSION
 COPY        . ./
@@ -6,7 +6,7 @@ RUN         CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X 'main.build=$VER
 RUN         sed "s/VERSION/$VERSION/g" docker/plugin.yaml > plugin.yaml
 RUN         curl -sfL https://github.com/mikefarah/yq/releases/download/v4.53.2/yq_linux_amd64 -o /tmp/yq && chmod 755 /tmp/yq
 
-FROM        gcr.io/distroless/static-debian13
+FROM        docker.io/library/debian:13-slim
 ENV         CUE_CACHE_DIR=/tmp
 COPY        --from=builder /tmp/yq                  /bin/yq
 COPY        --from=builder /go/src/app/cuegen       /bin/cuegen
