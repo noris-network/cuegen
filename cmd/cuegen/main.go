@@ -13,6 +13,8 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"runtime"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"syscall"
@@ -33,7 +35,17 @@ const (
 	legacyReleaseURL = "https://github.com/noris-network/cuegen/releases/tag/v0.16.8"
 )
 
+// build is set via -ldflags at release time (goreleaser/Dockerfile). Defaults
+// to "dev" for local builds.
+var build = "dev"
+
 func main() {
+	// Handle "version" before anything else — no banner, no module needed.
+	if len(os.Args) == 2 && os.Args[1] == "version" {
+		printVersion()
+		return
+	}
+
 	// Uniform, timestamp-free logging: informational lines use "[INFO]" via
 	// fmt.Fprintf, fatal errors go through log with a "cuegen:" prefix.
 	log.SetFlags(0)
@@ -199,4 +211,20 @@ func cmpPluginCheck() {
 		fmt.Println(true)
 	}
 	os.Exit(0)
+}
+
+// printVersion prints the cuegen version along with the embedded CUE version
+// and build platform. The CUE version is read from the module build info so it
+// stays accurate without a hardcoded constant.
+func printVersion() {
+	cueVer := "unknown"
+	if info, ok := debug.ReadBuildInfo(); ok {
+		for _, dep := range info.Deps {
+			if dep.Path == "cuelang.org/go" {
+				cueVer = dep.Version
+				break
+			}
+		}
+	}
+	fmt.Printf("cuegen %s (cue %s, %s/%s)\n", build, cueVer, runtime.GOOS, runtime.GOARCH)
 }
