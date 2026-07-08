@@ -18,6 +18,13 @@ The export path is read from `cuegen.spec.export` (default `export.objects`).
 SOPS-encrypted files (age) are transparently decrypted before loading — CUE
 never notices and works with the cleartext.
 
+## CUE version
+
+cuegen now tracks the current [CUE](https://cuelang.org) release (currently
+v0.17.0, up from the previously pinned v0.12.0). Since cuegen is a thin
+wrapper around CUE without much "magic", it aims to follow CUE releases
+closely going forward.
+
 ## Backward compatibility
 
 **From a user perspective nothing changes.** Modules with an older or missing
