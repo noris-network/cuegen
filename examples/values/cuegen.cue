@@ -1,2 +1,0 @@
-cuegen: objectsPath: "objects"
-components: []

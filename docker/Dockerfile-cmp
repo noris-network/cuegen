@@ -1,3 +1,5 @@
+FROM        docker.io/nxcc/cuegen-cmp:v0.16.8 AS legacy
+
 FROM        golang:1.26.4 AS builder
 WORKDIR     /go/src/app
 ARG         VERSION
@@ -7,6 +9,7 @@ RUN         sed "s/VERSION/$VERSION/g" docker/plugin.yaml > plugin.yaml
 RUN         curl -sfL https://github.com/mikefarah/yq/releases/download/v4.53.2/yq_linux_amd64 -o /tmp/yq && chmod 755 /tmp/yq
 
 FROM        docker.io/library/debian:13-slim
+COPY        --from=legacy  /bin/cuegen              /bin/cuegen_v0.16.8
 ENV         DEBIAN_FRONTEND=noninteractive
 RUN         apt-get update && apt-get install -y --no-install-recommends \
                 ca-certificates \

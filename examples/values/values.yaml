@@ -1,4 +1,0 @@
-instance:
-  environment: production
-  hostname: myapp.example.com
-  replicas: 7
