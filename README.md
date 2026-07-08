@@ -74,6 +74,63 @@ cuegen .
 As an ArgoCD CMP, a module is detected via the `-is-cuegen-dir` flag (checks
 for the presence of `cuegen.cue`).
 
+## Quick start
+
+A minimal cuegen module needs a `cue.mod/module.cue`, a `cuegen.cue` declaring
+the API version, and the objects to render. No external libraries required —
+
+`cue.mod/module.cue`:
+
+```cue
+module: "demo.local"
+language: version: "v0.17.0"
+```
+
+`cuegen.cue`:
+
+```cue
+package demo
+
+cuegen: {
+	apiVersion: "v2alpha1"
+	spec: export: "export.objects"
+}
+```
+
+`export.cue`:
+
+```cue
+package demo
+
+export: objects: configMap: demo: {
+	apiVersion: "v1"
+	kind:       "ConfigMap"
+	metadata: {
+		name:      "demo"
+		namespace: "default"
+	}
+	data: greeting: "Hello from cuegen!"
+}
+```
+
+Render it:
+
+```
+$ cuegen .
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: demo
+  namespace: default
+data:
+  greeting: Hello from cuegen!
+```
+
+The `export.objects` struct maps `kind` to `name` to object. cuegen flattens
+that two-level nesting and emits each object as its own YAML document in a
+`---`-separated stream — the same format `kubectl apply -f -` expects.
+
 ## SOPS / age
 
 The transparent SOPS decryption (age recipients only) was adopted from the
