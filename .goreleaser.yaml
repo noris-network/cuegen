@@ -28,4 +28,3 @@ archives:
   - files:
       - LICENSE*
       - README*
-      - examples/**/*
