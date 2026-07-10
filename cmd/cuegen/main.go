@@ -51,7 +51,7 @@ func main() {
 	log.SetFlags(0)
 	log.SetPrefix("cuegen: ")
 
-	fmt.Fprint(os.Stderr, "[INFO] *** cuegen ***\n")
+	fmt.Fprintf(os.Stderr, "[INFO] cuegen %s (cue %s)\n", build, cueVersion())
 
 	// argocd cmp check
 	cmpPluginCheck()
@@ -213,18 +213,22 @@ func cmpPluginCheck() {
 	os.Exit(0)
 }
 
-// printVersion prints the cuegen version along with the embedded CUE version
-// and build platform. The CUE version is read from the module build info so it
-// stays accurate without a hardcoded constant.
-func printVersion() {
-	cueVer := "unknown"
+// cueVersion returns the version of the embedded cuelang.org/go dependency,
+// read from the module build info so it stays accurate without a hardcoded
+// constant.
+func cueVersion() string {
 	if info, ok := debug.ReadBuildInfo(); ok {
 		for _, dep := range info.Deps {
 			if dep.Path == "cuelang.org/go" {
-				cueVer = dep.Version
-				break
+				return dep.Version
 			}
 		}
 	}
-	fmt.Printf("cuegen %s (cue %s, %s/%s)\n", build, cueVer, runtime.GOOS, runtime.GOARCH)
+	return "unknown"
+}
+
+// printVersion prints the cuegen version along with the embedded CUE version
+// and build platform.
+func printVersion() {
+	fmt.Printf("cuegen %s (cue %s, %s/%s)\n", build, cueVersion(), runtime.GOOS, runtime.GOARCH)
 }
