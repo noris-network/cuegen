@@ -58,6 +58,8 @@ cuegen .
 cuegen -kyaml .
 # output a JSON array (suitable for piping into fx/jq):
 cuegen -json .
+# indent list items under their parent key (yq-style):
+cuegen -wide .
 # print only the SHA1 hash of the output (no banner, no YAML):
 cuegen -sha1 .
 # compare the output hash against a known value (40 hex chars):

@@ -46,6 +46,12 @@ type Options struct {
 	// Format selects the output encoding; the zero value is FormatYAML.
 	Format Format
 
+	// WideSeqIndent indents sequence/list items under their parent key
+	// (two spaces) instead of keeping them flush left. Applies to YAML
+	// output only; ignored for KYAML and JSON. Matches the style of
+	// mikefarah/yq.
+	WideSeqIndent bool
+
 	// FileFilter transforms the raw bytes of every file below the module
 	// root before the CUE loader sees them. It receives the absolute file
 	// path (for context-aware decisions, e.g. detecting `.enc.cue`) and the
@@ -163,7 +169,7 @@ func Exec(path string, out io.Writer, opts Options) error {
 	case FormatJSON:
 		return writeJSON(nodes, out)
 	case FormatYAML:
-		return kio.ByteWriter{Writer: out}.Write(nodes)
+		return writeYaml(nodes, out, opts.WideSeqIndent)
 	default:
 		return fmt.Errorf("unknown output format %d", opts.Format)
 	}
@@ -233,6 +239,24 @@ func writeKyaml(nodes []*yaml.RNode, out io.Writer) error {
 	}
 	if err := (&kyaml.Encoder{}).FromYAML(&buf, out); err != nil {
 		return fmt.Errorf("encode kyaml: %w", err)
+	}
+	return nil
+}
+
+// writeYaml serializes the filtered nodes as a "---"-separated YAML stream.
+// When wide is true, sequence/list items are indented under their parent key
+// (matching mikefarah/yq); otherwise they stay flush left (compact style).
+func writeYaml(nodes []*yaml.RNode, out io.Writer, wide bool) error {
+	opts := &yaml.EncoderOptions{}
+	if wide {
+		opts.SeqIndent = yaml.WideSequenceStyle
+	}
+	encoder := yaml.NewEncoderWithOptions(out, opts)
+	defer encoder.Close()
+	for i, node := range nodes {
+		if err := encoder.Encode(node.Document()); err != nil {
+			return fmt.Errorf("encode yaml for node %d: %w", i, err)
+		}
 	}
 	return nil
 }

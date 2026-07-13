@@ -73,6 +73,7 @@ func main() {
 	args := os.Args[1:]
 	useKYAML := false
 	useJSON := false
+	useWide := false
 	hashOnly := false
 	cmpSHA1 := ""
 	cmpSHA1Set := false
@@ -88,6 +89,8 @@ func main() {
 			useKYAML = true
 		case "-json":
 			useJSON = true
+		case "-wide":
+			useWide = true
 		case "-sha1":
 			hashOnly = true
 		case "-cmp-sha1":
@@ -185,7 +188,7 @@ func main() {
 	case useJSON:
 		format = engine.FormatJSON
 	}
-	opts := engine.Options{Format: format, FileFilter: sopsFilter}
+	opts := engine.Options{Format: format, WideSeqIndent: useWide, FileFilter: sopsFilter}
 
 	if hashOnly || cmpSHA1Set {
 		var buf bytes.Buffer
@@ -386,6 +389,7 @@ Flags:
   -kyaml           emit KYAML (flow-style) instead of block YAML
   -json            emit a JSON object keyed by <kind>/<metadata.name>, mainly
                    for debugging the generated manifest (e.g. with fx)
+  -wide            indent list items under their parent key (yq-style)
   -sha1            print only the SHA1 hash of the output
   -cmp-sha1 <hash> compare output hash to <hash>; exit 0 match, 100 mismatch,
                    1 on a malformed hash

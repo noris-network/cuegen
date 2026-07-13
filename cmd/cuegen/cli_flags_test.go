@@ -654,3 +654,78 @@ func TestCmpSha1Json(t *testing.T) {
 		t.Errorf("expected exit 100 on json mismatch, got %d", exit)
 	}
 }
+
+// TestWideFlag verifies -wide indents list items under their parent key
+// (matching mikefarah/yq), while the default keeps them flush left. The
+// difference must show up as a "- " vs "  - " prefix on the first list item.
+func TestWideFlag(t *testing.T) {
+	dir := t.TempDir()
+	writeModuleWithList(t, dir)
+
+	compact, _, ce := runCuegen(t, dir, ".")
+	if ce != 0 {
+		t.Fatalf("compact render exit %d", ce)
+	}
+	wide, _, we := runCuegen(t, dir, "-wide", ".")
+	if we != 0 {
+		t.Fatalf("wide render exit %d", we)
+	}
+
+	// Compact: list dashes are at the same indentation as the parent key.
+	// Wide: list dashes are indented 2 spaces deeper than the parent key.
+	for _, line := range strings.Split(compact, "\n") {
+		if strings.HasPrefix(line, "  - name: app") {
+			goto compactOK
+		}
+	}
+	t.Fatalf("compact output should have flush-left list items:\n%s", compact)
+compactOK:
+	for _, line := range strings.Split(wide, "\n") {
+		if strings.HasPrefix(line, "    - name: app") {
+			goto wideOK
+		}
+	}
+	t.Fatalf("wide output should have indented list items:\n%s", wide)
+wideOK:
+
+	// -wide must produce different output than the default.
+	if compact == wide {
+		t.Fatalf("compact and wide output are identical (expected different indentation)")
+	}
+}
+
+// writeModuleWithList lays out a minimal v2 module whose Deployment has a
+// containers list, so the compact vs wide indentation difference is visible.
+func writeModuleWithList(t *testing.T, dir string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Join(dir, "cue.mod"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "cue.mod", "module.cue"), []byte(`module: "t.local"
+language: version: "v0.17.0"
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "cuegen.cue"), []byte(`package control
+
+cuegen: {
+	apiVersion: "v2"
+}
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "export.cue"), []byte(`package control
+
+export: objects: deployment: app: {
+	apiVersion: "apps/v1"
+	kind:       "Deployment"
+	metadata: name: "app"
+	spec: containers: [{
+		name:  "app"
+		image: "nginx:1.27"
+	}]
+}
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
