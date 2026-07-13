@@ -60,6 +60,8 @@ cuegen -kyaml .
 cuegen -json .
 # indent list items under their parent key (yq-style):
 cuegen -wide .
+# or via env var (e.g. for ArgoCD CMP where CLI flags aren't easily passed):
+CUEGEN_WIDE=true cuegen .
 # print only the SHA1 hash of the output (no banner, no YAML):
 cuegen -sha1 .
 # compare the output hash against a known value (40 hex chars):

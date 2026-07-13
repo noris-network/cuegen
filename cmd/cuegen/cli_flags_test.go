@@ -694,6 +694,39 @@ wideOK:
 	}
 }
 
+// TestWideEnvVar verifies CUEGEN_WIDE=true produces the same wide-indented
+// output as the -wide flag, and that CUEGEN_WIDE=false leaves the default
+// compact style intact.
+func TestWideEnvVar(t *testing.T) {
+	dir := t.TempDir()
+	writeModuleWithList(t, dir)
+
+	flagWide, _, we := runCuegen(t, dir, "-wide", ".")
+	if we != 0 {
+		t.Fatalf("-wide render exit %d", we)
+	}
+
+	t.Setenv("CUEGEN_WIDE", "true")
+	envWide, _, ee := runCuegen(t, dir, ".")
+	if ee != 0 {
+		t.Fatalf("CUEGEN_WIDE=true render exit %d", ee)
+	}
+	if envWide != flagWide {
+		t.Errorf("CUEGEN_WIDE=true output differs from -wide output")
+	}
+
+	t.Setenv("CUEGEN_WIDE", "false")
+	envCompact, _, ce := runCuegen(t, dir, ".")
+	if ce != 0 {
+		t.Fatalf("CUEGEN_WIDE=false render exit %d", ce)
+	}
+	for _, line := range strings.Split(envCompact, "\n") {
+		if strings.HasPrefix(line, "    - name: app") {
+			t.Fatalf("CUEGEN_WIDE=false should produce compact output:\n%s", envCompact)
+		}
+	}
+}
+
 // writeModuleWithList lays out a minimal v2 module whose Deployment has a
 // containers list, so the compact vs wide indentation difference is visible.
 func writeModuleWithList(t *testing.T, dir string) {

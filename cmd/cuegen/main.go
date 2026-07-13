@@ -110,6 +110,14 @@ func main() {
 	}
 	args = filtered
 
+	// CUEGEN_WIDE=true enables wide sequence indentation without the -wide
+	// flag.
+	if v, ok := os.LookupEnv("CUEGEN_WIDE"); ok {
+		if b, err := strconv.ParseBool(v); err == nil {
+			useWide = useWide || b
+		}
+	}
+
 	if cmpSHA1Set && !isValidSHA1(cmpSHA1) {
 		log.Fatalf("-cmp-sha1: %q is not a valid SHA1 hash (expected 40 hex characters)", cmpSHA1)
 	}
@@ -390,6 +398,7 @@ Flags:
   -json            emit a JSON object keyed by <kind>/<metadata.name>, mainly
                    for debugging the generated manifest (e.g. with fx)
   -wide            indent list items under their parent key (yq-style)
+                   (also enabled by CUEGEN_WIDE=true)
   -sha1            print only the SHA1 hash of the output
   -cmp-sha1 <hash> compare output hash to <hash>; exit 0 match, 100 mismatch,
                    1 on a malformed hash
