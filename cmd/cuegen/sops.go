@@ -17,6 +17,8 @@ import (
 
 	"filippo.io/age"
 	"filippo.io/age/armor"
+
+	"sigs.k8s.io/yaml"
 )
 
 // errNotAgeSops marks a detection miss: the bytes tripped the [looksLikeSops]
@@ -54,15 +56,13 @@ func notAgeSops(reason string, err error) error {
 // Only age recipients are supported.
 //
 // Supported file shapes:
-//   - sops binary store: a JSON envelope with top-level "data" + "sops" keys.
-//     The clear-text "data" is returned verbatim (raw bytes).
+//   - sops binary store: a JSON or YAML envelope with top-level "data" +
+//     "sops" keys. The clear-text "data" is returned verbatim (raw bytes).
 //   - sops native JSON: any other JSON document with a top-level "sops"
 //     metadata block. Every "ENC[AES256_GCM,...]" leaf is decrypted in place
 //     using its tree-path AAD; the "sops" block is stripped from the output.
-//
-// Native YAML files are intentionally not supported: cuegen's inputs are CUE
-// sources and binary blobs, both of which sops encrypts as the binary store.
-// Add YAML support if a real need shows up.
+//   - sops native YAML: same as native JSON, but the envelope is YAML. It is
+//     converted to JSON for tree-walking and converted back to YAML on output.
 func sopsFilter(path string, raw []byte) ([]byte, error) {
 	if !looksLikeSops(raw) {
 		return raw, nil
@@ -79,17 +79,28 @@ func sopsFilter(path string, raw []byte) ([]byte, error) {
 }
 
 // looksLikeSops is a cheap pre-filter that decides whether a file is worth
-// running through the JSON-based decrypt path. Sops files we accept are
-// always JSON, so we require the canonical *quoted* keys "sops" and either
-// "unencrypted_suffix" or the combined token "sops_unencrypted_suffix". This
-// avoids false positives when CUE source code merely mentions sops in a
-// comment.
+// running through the decrypt path. Sops files come in two flavors:
+//
+//   - JSON: quoted keys "sops" and "unencrypted_suffix" (or the combined
+//     "sops_unencrypted_suffix").
+//   - YAML: unquoted keys sops: and unencrypted_suffix: (or
+//     sops_unencrypted_suffix:).
+//
+// Checking for the colon-terminated form (sops:) avoids false positives from
+// CUE source code that merely mentions sops in a comment, since a comment
+// would say "sops" without a trailing colon.
 func looksLikeSops(raw []byte) bool {
-	if bytes.Contains(raw, []byte(`"sops_unencrypted_suffix"`)) {
+	// Combined token - quoted (JSON) or colon-terminated (YAML).
+	if bytes.Contains(raw, []byte(`"sops_unencrypted_suffix"`)) ||
+		bytes.Contains(raw, []byte("sops_unencrypted_suffix:")) {
 		return true
 	}
-	return bytes.Contains(raw, []byte(`"sops"`)) &&
-		bytes.Contains(raw, []byte(`"unencrypted_suffix"`))
+	// Separate keys - quoted (JSON) or colon-terminated (YAML).
+	hasSops := bytes.Contains(raw, []byte(`"sops"`)) ||
+		bytes.Contains(raw, []byte("sops:"))
+	hasSuffix := bytes.Contains(raw, []byte(`"unencrypted_suffix"`)) ||
+		bytes.Contains(raw, []byte("unencrypted_suffix:"))
+	return hasSops && hasSuffix
 }
 
 // sopsEnvelope captures only the fields we need from a sops file.
@@ -106,12 +117,28 @@ type sopsAgeRecipient struct {
 	Enc       string `json:"enc"`
 }
 
+// decryptSops decrypts a sops-encrypted file. Both JSON and YAML envelopes
+// are supported: JSON is parsed directly, YAML is converted to JSON for
+// uniform tree-walking and converted back to YAML on output. The binary
+// store (top-level "data" + "sops") returns the decrypted payload verbatim
+// regardless of envelope format.
 func decryptSops(raw []byte) ([]byte, error) {
-	// Parse twice: once to grab the sops metadata in a typed shape, once as
-	// generic JSON so we can walk every leaf without losing fields.
+	// Normalize to JSON for uniform processing. JSON is tried first; if it
+	// fails, YAML is converted to JSON. isYAML tracks the origin so the
+	// output can be converted back to the original format.
+	isYAML := false
+	jsonData := raw
 	var meta sopsEnvelope
 	if err := json.Unmarshal(raw, &meta); err != nil {
-		return nil, notAgeSops("parse sops envelope", err)
+		j, yErr := yaml.YAMLToJSON(raw)
+		if yErr != nil {
+			return nil, notAgeSops("parse sops envelope", yErr)
+		}
+		jsonData = j
+		isYAML = true
+		if err := json.Unmarshal(jsonData, &meta); err != nil {
+			return nil, notAgeSops("parse sops envelope", err)
+		}
 	}
 	if meta.Sops == nil {
 		return nil, notAgeSops("no sops metadata block", nil)
@@ -127,7 +154,7 @@ func decryptSops(raw []byte) ([]byte, error) {
 
 	// Re-parse as generic JSON for the tree walk.
 	var root map[string]json.RawMessage
-	if err := json.Unmarshal(raw, &root); err != nil {
+	if err := json.Unmarshal(jsonData, &root); err != nil {
 		return nil, fmt.Errorf("parse sops body: %w", err)
 	}
 
@@ -145,7 +172,7 @@ func decryptSops(raw []byte) ([]byte, error) {
 		}
 	}
 
-	// Native JSON: walk the tree, decrypt every ENC[...] leaf, strip "sops".
+	// Native JSON/YAML: walk the tree, decrypt every ENC[...] leaf, strip "sops".
 	delete(root, "sops")
 	walked := make(map[string]any, len(root))
 	for k, v := range root {
@@ -159,7 +186,18 @@ func decryptSops(raw []byte) ([]byte, error) {
 		}
 		walked[k] = out
 	}
-	return json.MarshalIndent(walked, "", "  ")
+	out, err := json.MarshalIndent(walked, "", "  ")
+	if err != nil {
+		return nil, fmt.Errorf("marshal decrypted output: %w", err)
+	}
+	if isYAML {
+		y, err := yaml.JSONToYAML(out)
+		if err != nil {
+			return nil, fmt.Errorf("convert decrypted output to YAML: %w", err)
+		}
+		return y, nil
+	}
+	return out, nil
 }
 
 // extractDEK takes the sops age recipients and returns the 32-byte data

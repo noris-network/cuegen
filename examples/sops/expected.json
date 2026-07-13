@@ -1,0 +1,27 @@
+{
+  "ConfigMap/db-config": {
+    "apiVersion": "v1",
+    "data": {
+      "API_KEY": "abc123secret",
+      "DATABASE_HOST": "db.example.com",
+      "DATABASE_PORT": "5432"
+    },
+    "kind": "ConfigMap",
+    "metadata": {
+      "name": "db-config",
+      "namespace": "default"
+    }
+  },
+  "Secret/demo-secret": {
+    "apiVersion": "v1",
+    "data": {
+      "password": "s3cr3t-value",
+      "username": "admin"
+    },
+    "kind": "Secret",
+    "metadata": {
+      "name": "demo-secret",
+      "namespace": "default"
+    }
+  }
+}

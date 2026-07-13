@@ -14,6 +14,8 @@ import (
 
 	"filippo.io/age"
 	"filippo.io/age/armor"
+
+	"sigs.k8s.io/yaml"
 )
 
 // --- test helpers ----------------------------------------------------------
@@ -111,10 +113,14 @@ func TestLooksLikeSops(t *testing.T) {
 	}{
 		{"combined token", `{"sops_unencrypted_suffix":"_"}`, true},
 		{"both quoted keys", `{"sops":{},"unencrypted_suffix":"_"}`, true},
+		{"yaml combined token", "sops_unencrypted_suffix: _\n", true},
+		{"yaml both keys", "sops:\n    age: []\nunencrypted_suffix: _\n", true},
 		{"comment mention only", "// sops manages this\npackage x", false},
 		{"plain text", "hello world", false},
 		{"sops without suffix", `{"sops":{}}`, false},
 		{"suffix without sops", `{"unencrypted_suffix":"_"}`, false},
+		{"yaml sops without suffix", "sops:\n    age: []\n", false},
+		{"yaml suffix without sops", "unencrypted_suffix: _\n", false},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -261,6 +267,56 @@ func TestDecryptSopsNativeJSON(t *testing.T) {
 		var got map[string]any
 		if err := json.Unmarshal(out, &got); err != nil {
 			t.Fatalf("unmarshal output: %v\n%s", err, out)
+		}
+		if got["sops"] != nil {
+			t.Errorf("sops block not stripped: %v", got["sops"])
+		}
+		toks := got["tokens"].(map[string]any)
+		if toks["USER"] != "svc-foo" || toks["PASS"] != "s3cret" {
+			t.Errorf("tokens = %#v want USER=svc-foo PASS=s3cret", toks)
+		}
+	})
+}
+
+// --- decryptSops end-to-end: native YAML ----------------------------------
+
+// TestDecryptSopsNativeYAML verifies a native YAML sops file is decrypted
+// and the output is valid YAML (not JSON). The ENC[...] leaves are decrypted
+// with the same tree-path AAD as the JSON path, and the "sops" block is
+// stripped.
+func TestDecryptSopsNativeYAML(t *testing.T) {
+	ident, dek := genAge(t)
+	// Build the YAML envelope manually so the AAD paths match what sops
+	// would produce: "tokens:USER:" and "tokens:PASS:".
+	userEnc := encLeaf(t, dek, "svc-foo", "tokens:USER:", "str")
+	passEnc := encLeaf(t, dek, "s3cret", "tokens:PASS:", "str")
+	enc := armorDEK(t, ident, dek)
+	yamlInput := fmt.Sprintf(`tokens:
+    USER: %s
+    PASS: %s
+sops:
+    age:
+        - recipient: %s
+          enc: |
+            %s
+    unencrypted_suffix: _
+    version: 3.10.1
+`, userEnc, passEnc, ident.Recipient().String(),
+		strings.ReplaceAll(strings.TrimSpace(enc), "\n", "\n            "))
+
+	withAgeKey(t, ident.String(), func() {
+		out, err := decryptSops([]byte(yamlInput))
+		if err != nil {
+			t.Fatalf("decryptSops: %v", err)
+		}
+		// Output must be YAML, not JSON: YAML uses indentation, not braces.
+		if bytes.Contains(out, []byte("{")) {
+			t.Errorf("output should be YAML, got JSON:\n%s", out)
+		}
+		// Parse the YAML output and verify decrypted values.
+		var got map[string]any
+		if err := yaml.Unmarshal(out, &got); err != nil {
+			t.Fatalf("unmarshal YAML output: %v\n%s", err, out)
 		}
 		if got["sops"] != nil {
 			t.Errorf("sops block not stripped: %v", got["sops"])
