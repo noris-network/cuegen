@@ -191,7 +191,7 @@ func TestDecryptValueRoundTrip(t *testing.T) {
 	}
 }
 
-// Wrong AAD must fail AEAD authentication — pins the AAD contract.
+// Wrong AAD must fail AEAD authentication - pins the AAD contract.
 func TestDecryptValueWrongAADFails(t *testing.T) {
 	dek := bytes.Repeat([]byte{0xCD}, 32)
 	enc := encLeaf(t, dek, "secret", "a:b:", "str")
@@ -299,7 +299,7 @@ func TestDecryptSopsBinaryStore(t *testing.T) {
 // --- sopsFilter: hard vs soft failure -------------------------------------
 
 // A genuine age-encrypted sops file with the wrong key configured must fail
-// hard — no ciphertext ever reaches the CUE compiler or a deployment.
+// hard - no ciphertext ever reaches the CUE compiler or a deployment.
 func TestSopsFilterHardFailureOnWrongKey(t *testing.T) {
 	ident, dek := genAge(t)
 	envelope := map[string]any{

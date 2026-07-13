@@ -2,6 +2,7 @@ package engine
 
 import (
 	"bytes"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -20,23 +21,7 @@ func writeFile(t *testing.T, dir, name, content string) {
 	}
 }
 
-// chdir changes into dir for the duration of the test, restoring the working
-// directory on cleanup. The engine loads via ".", mirroring real CLI usage;
-// CUE's loader rejects absolute paths, so tests must run from inside the
-// module directory.
-func chdir(t *testing.T, dir string) {
-	t.Helper()
-	wd, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("getwd: %v", err)
-	}
-	if err := os.Chdir(dir); err != nil {
-		t.Fatalf("chdir %s: %v", dir, err)
-	}
-	t.Cleanup(func() { _ = os.Chdir(wd) })
-}
-
-// writeModule scaffolds a self-contained v2alpha1 module in dir. If exportPath
+// writeModule scaffolds a self-contained v2 module in dir. If exportPath
 // is empty, cuegen.spec.export is omitted so the default kicks in.
 func writeModule(t *testing.T, dir, exportPath string) {
 	t.Helper()
@@ -47,14 +32,14 @@ language: version: "v0.17.0"
 		writeFile(t, dir, "cuegen.cue", `package control
 
 cuegen: {
-	apiVersion: "v2alpha1"
+	apiVersion: "v2"
 }
 `)
 	} else {
 		writeFile(t, dir, "cuegen.cue", `package control
 
 cuegen: {
-	apiVersion: "v2alpha1"
+	apiVersion: "v2"
 	spec: export: "`+exportPath+`"
 }
 `)
@@ -63,7 +48,9 @@ cuegen: {
 
 // TestExecDefaultExportPath renders a module that omits cuegen.spec.export;
 // the engine must fall back to "export.objects" and emit one YAML document
-// per object, separated by "---".
+// per object, separated by "---". Exec loads via the process's current
+// working directory (see the Exec doc comment), so tests chdir into the
+// module rather than pass its absolute path.
 func TestExecDefaultExportPath(t *testing.T) {
 	dir := t.TempDir()
 	writeModule(t, dir, "")
@@ -87,9 +74,9 @@ export: objects: {
 }
 `)
 
+	t.Chdir(dir)
 	var out bytes.Buffer
-	chdir(t, dir)
-	if err := Exec(".", &out); err != nil {
+	if err := Exec(".", &out, Options{}); err != nil {
 		t.Fatalf("Exec: %v", err)
 	}
 	got := out.String()
@@ -122,9 +109,9 @@ out: things: secret: s: {
 }
 `)
 
+	t.Chdir(dir)
 	var out bytes.Buffer
-	chdir(t, dir)
-	if err := Exec(".", &out); err != nil {
+	if err := Exec(".", &out, Options{}); err != nil {
 		t.Fatalf("Exec: %v", err)
 	}
 	got := out.String()
@@ -145,9 +132,9 @@ func TestExecMissingExportPath(t *testing.T) {
 export: objects: {}
 `)
 
+	t.Chdir(dir)
 	var out bytes.Buffer
-	chdir(t, dir)
-	err := Exec(".", &out)
+	err := Exec(".", &out, Options{})
 	if err == nil {
 		t.Fatal("expected error for missing export path, got nil")
 	}
@@ -156,5 +143,168 @@ export: objects: {}
 	}
 	if out.Len() != 0 {
 		t.Errorf("no output expected on error, got %q", out.String())
+	}
+}
+
+// TestExecNonConcreteExport verifies that non-concrete values are caught
+// before YAML encoding with a helpful error: every offending field is
+// reported at once, each with its full CUE path and source position, and
+// no partial output is written. A field carrying a CUE default is concrete
+// for export purposes and must not be reported.
+func TestExecNonConcreteExport(t *testing.T) {
+	dir := t.TempDir()
+	writeModule(t, dir, "")
+	writeFile(t, dir, "export.cue", `package control
+
+$token:    string
+$replicas: int
+
+export: objects: {
+	configMap: "cm-a": {
+		apiVersion: "v1"
+		kind:       "ConfigMap"
+		metadata: name: "cm-a"
+		data: {
+			TOKEN: $token
+			LEVEL: *"info" | "debug"
+		}
+	}
+	deployment: "dep-a": {
+		apiVersion: "apps/v1"
+		kind:       "Deployment"
+		metadata: name: "dep-a"
+		spec: replicas: $replicas
+	}
+}
+`)
+
+	t.Chdir(dir)
+	var out bytes.Buffer
+	err := Exec(".", &out, Options{})
+	if err == nil {
+		t.Fatal("expected error for non-concrete export, got nil")
+	}
+	msg := err.Error()
+	// All holes reported in one pass, each with its full CUE path.
+	for _, want := range []string{
+		`export.objects.configMap."cm-a".data.TOKEN`,
+		`export.objects.deployment."dep-a".spec.replicas`,
+		"incomplete value",
+		"export.cue:", // source position
+	} {
+		if !strings.Contains(msg, want) {
+			t.Errorf("error should contain %q, got:\n%s", want, msg)
+		}
+	}
+	// A defaulted field is concrete and must not be flagged.
+	if strings.Contains(msg, "LEVEL") {
+		t.Errorf("defaulted field must not be reported as non-concrete, got:\n%s", msg)
+	}
+	if out.Len() != 0 {
+		t.Errorf("no output expected on error, got %q", out.String())
+	}
+}
+
+// TestExecSubdirUnifiesWithParent pins the CUE semantics engine.Exec relies
+// on: loading a subdirectory unifies its package with the same-named
+// package in every ancestor directory up to the module root. dir declares
+// a value hole ($value) that only "sub" fills in - the render must succeed
+// and reflect sub's value, proving Exec resolved "./sub" relative to dir
+// (the CWD) rather than treating sub as a self-contained module. This is
+// the exact pattern examples/webapp/prod demonstrates.
+func TestExecSubdirUnifiesWithParent(t *testing.T) {
+	dir := t.TempDir()
+	writeModule(t, dir, "")
+	writeFile(t, dir, "export.cue", `package control
+
+$value: string
+
+export: objects: configMap: cm: {
+	apiVersion: "v1"
+	kind:       "ConfigMap"
+	metadata: name: "cm"
+	data: value: $value
+}
+`)
+	writeFile(t, dir, "sub/export.cue", `package control
+
+$value: "from-sub"
+`)
+
+	t.Chdir(dir)
+	var out bytes.Buffer
+	if err := Exec("./sub", &out, Options{}); err != nil {
+		t.Fatalf("Exec: %v", err)
+	}
+	if got := out.String(); !strings.Contains(got, "from-sub") {
+		t.Errorf("output missing value unified from parent+sub\n%s", got)
+	}
+}
+
+// TestExecJSONKeyScheme pins the FormatJSON key scheme: keys are always
+// "<kind>/<name>", deliberately without the namespace - it has no value for
+// cuegen's use case. Consequently two objects sharing kind and name (here:
+// in different namespaces) are a hard duplicate-key error rather than being
+// silently disambiguated or dropped.
+func TestExecJSONKeyScheme(t *testing.T) {
+	dir := t.TempDir()
+	writeModule(t, dir, "")
+	writeFile(t, dir, "export.cue", `package control
+
+export: objects: configMap: {
+	"a": {
+		apiVersion: "v1"
+		kind:       "ConfigMap"
+		metadata: {name: "cm", namespace: "ns-one"}
+		data: x: "1"
+	}
+}
+`)
+
+	t.Chdir(dir)
+	var out bytes.Buffer
+	if err := Exec(".", &out, Options{Format: FormatJSON}); err != nil {
+		t.Fatalf("Exec: %v", err)
+	}
+	var obj map[string]any
+	if err := json.Unmarshal(out.Bytes(), &obj); err != nil {
+		t.Fatalf("invalid JSON: %v\n%s", err, out.String())
+	}
+	if _, ok := obj["ConfigMap/cm"]; !ok || len(obj) != 1 {
+		t.Errorf("want single key %q, got %v", "ConfigMap/cm", out.String())
+	}
+}
+
+// TestExecJSONDuplicateKindName errors on two objects with the same kind and
+// name, even in different namespaces.
+func TestExecJSONDuplicateKindName(t *testing.T) {
+	dir := t.TempDir()
+	writeModule(t, dir, "")
+	writeFile(t, dir, "export.cue", `package control
+
+export: objects: configMap: {
+	"a": {
+		apiVersion: "v1"
+		kind:       "ConfigMap"
+		metadata: {name: "cm", namespace: "ns-one"}
+		data: x: "1"
+	}
+	"b": {
+		apiVersion: "v1"
+		kind:       "ConfigMap"
+		metadata: {name: "cm", namespace: "ns-two"}
+		data: x: "2"
+	}
+}
+`)
+
+	t.Chdir(dir)
+	var out bytes.Buffer
+	err := Exec(".", &out, Options{Format: FormatJSON})
+	if err == nil {
+		t.Fatal("expected duplicate-key error, got nil")
+	}
+	if !strings.Contains(err.Error(), `duplicate object key "ConfigMap/cm"`) {
+		t.Errorf("error = %q, want it to name the duplicate key", err)
 	}
 }

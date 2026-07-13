@@ -1,0 +1,79 @@
+{
+  "ConfigMap/app-config": {
+    "apiVersion": "v1",
+    "data": {
+      "LOG_LEVEL": "info",
+      "PORT": "8080"
+    },
+    "kind": "ConfigMap",
+    "metadata": {
+      "name": "app-config",
+      "namespace": "default"
+    }
+  },
+  "Deployment/webapp": {
+    "apiVersion": "apps/v1",
+    "kind": "Deployment",
+    "metadata": {
+      "labels": {
+        "app": "webapp"
+      },
+      "name": "webapp",
+      "namespace": "default"
+    },
+    "spec": {
+      "replicas": 3,
+      "selector": {
+        "matchLabels": {
+          "app": "webapp"
+        }
+      },
+      "template": {
+        "metadata": {
+          "labels": {
+            "app": "webapp"
+          }
+        },
+        "spec": {
+          "containers": [
+            {
+              "image": "nginx:1.27",
+              "name": "webapp",
+              "ports": [
+                {
+                  "containerPort": 8080,
+                  "name": "http"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    }
+  },
+  "Service/webapp": {
+    "apiVersion": "v1",
+    "kind": "Service",
+    "metadata": {
+      "labels": {
+        "app": "webapp"
+      },
+      "name": "webapp",
+      "namespace": "default"
+    },
+    "spec": {
+      "ports": [
+        {
+          "name": "http",
+          "port": 8080,
+          "protocol": "TCP",
+          "targetPort": "http"
+        }
+      ],
+      "selector": {
+        "app": "webapp"
+      },
+      "type": "ClusterIP"
+    }
+  }
+}

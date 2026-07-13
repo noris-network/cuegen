@@ -12,7 +12,6 @@ func TestMajorVersion(t *testing.T) {
 		want int
 		ok   bool
 	}{
-		{"v2alpha1", 2, true},
 		{"v2", 2, true},
 		{"v2.0.0", 2, true},
 		{"v1beta1", 1, true},
@@ -37,7 +36,6 @@ func TestIsV2(t *testing.T) {
 		in   string
 		want bool
 	}{
-		{"v2alpha1", true},
 		{"v2", true},
 		{"v2.0.0", true},
 		{"v1beta1", false},
@@ -68,10 +66,10 @@ func TestReadAPIVersion(t *testing.T) {
 			src: `package control
 
 cuegen: {
-	apiVersion: "v2alpha1"
+	apiVersion: "v2"
 	spec: export: "export.objects"
 }`,
-			want: "v2alpha1",
+			want: "v2",
 		},
 		{
 			name: "chained shorthand",
@@ -88,10 +86,10 @@ cuegen: apiVersion: "v1beta1"
 import "noris.net/mcs/libmcs@v2"
 
 cuegen: {
-	apiVersion: "v2alpha1"
+	apiVersion: "v2"
 	spec: import: [libmcs]
 }`,
-			want: "v2alpha1",
+			want: "v2",
 		},
 		{
 			name: "no cuegen field",

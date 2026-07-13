@@ -20,7 +20,7 @@ import (
 )
 
 // errNotAgeSops marks a detection miss: the bytes tripped the [looksLikeSops]
-// heuristic but turned out not to be an age-encrypted sops file we handle —
+// heuristic but turned out not to be an age-encrypted sops file we handle -
 // either a heuristic false positive (the quoted markers appeared by chance) or
 // a non-age envelope (KMS/PGP). Such files are passed through unchanged. A
 // decrypt failure on a *genuine* age-encrypted sops file is NOT wrapped with
@@ -48,7 +48,7 @@ func notAgeSops(reason string, err error) error {
 //     bytes through unchanged so CUE compiles the file as-is.
 //   - Genuine decrypt failure: a real age-encrypted sops file that could not
 //     be decrypted (missing/rotated key, corrupt ciphertext, …). This fails
-//     HARD — returning the error aborts the render so ciphertext never
+//     HARD - returning the error aborts the render so ciphertext never
 //     reaches the CUE compiler or a downstream deployment.
 //
 // Only age recipients are supported.
@@ -184,6 +184,12 @@ func extractDEK(recipients []sopsAgeRecipient) ([]byte, error) {
 			lastErr = err
 			continue
 		}
+		// The sops DEK is always an AES-256 key; anything else would only
+		// surface later as an opaque aes.NewCipher error.
+		if len(dek) != 32 {
+			lastErr = fmt.Errorf("decrypted DEK has %d bytes, want 32", len(dek))
+			continue
+		}
 		return dek, nil
 	}
 	return nil, fmt.Errorf("no age identity could decrypt any recipient: %w", lastErr)
@@ -215,15 +221,15 @@ func loadAgeIdentities() ([]age.Identity, error) {
 		}
 	}
 	if len(all) == 0 {
-		cfg := os.Getenv("XDG_CONFIG_HOME")
-		if cfg == "" {
-			cfg = filepath.Join(os.Getenv("HOME"), ".config")
-		}
-		p := filepath.Join(cfg, "sops", "age", "keys.txt")
-		// Fallback path is best-effort: missing file is not an error.
-		if _, err := os.Stat(p); err == nil {
-			if err := parseFile(p, parse); err != nil {
-				return nil, fmt.Errorf("%s: %w", p, err)
+		// os.UserConfigDir resolves $XDG_CONFIG_HOME with a $HOME/.config
+		// fallback - exactly sops' default keys.txt location. Best-effort:
+		// an unresolvable config dir or missing file is not an error.
+		if cfg, err := os.UserConfigDir(); err == nil {
+			p := filepath.Join(cfg, "sops", "age", "keys.txt")
+			if _, err := os.Stat(p); err == nil {
+				if err := parseFile(p, parse); err != nil {
+					return nil, fmt.Errorf("%s: %w", p, err)
+				}
 			}
 		}
 	}
@@ -243,9 +249,17 @@ func parseFile(path string, fn func(io.Reader) error) error {
 
 // decryptValue parses a sops ENC[AES256_GCM,...] string and returns the
 // plaintext together with the recorded type tag ("str", "int", "bool", …).
+// Values with a different algorithm tag (e.g. AES256_CBC) fail up front
+// with a clear error instead of misparsing into an AEAD failure.
 func decryptValue(encStr string, dek []byte, aad string) (string, string, error) {
-	inner := strings.TrimPrefix(encStr, "ENC[AES256_GCM,")
-	inner = strings.TrimSuffix(inner, "]")
+	inner, ok := strings.CutPrefix(encStr, "ENC[AES256_GCM,")
+	if !ok {
+		return "", "", fmt.Errorf("unsupported sops value %.40q: want ENC[AES256_GCM,...]", encStr)
+	}
+	inner, ok = strings.CutSuffix(inner, "]")
+	if !ok {
+		return "", "", fmt.Errorf("malformed sops value %.40q: missing closing bracket", encStr)
+	}
 	fields := map[string]string{}
 	for kv := range strings.SplitSeq(inner, ",") {
 		k, v, ok := strings.Cut(kv, ":")
@@ -283,7 +297,7 @@ func decryptValue(encStr string, dek []byte, aad string) (string, string, error)
 
 // walkAndDecrypt walks a parsed JSON tree (map/slice/scalar), decrypting
 // every ENC[...] string leaf with its tree-path AAD. Non-encrypted values
-// pass through unchanged. List indices do not contribute to the AAD —
+// pass through unchanged. List indices do not contribute to the AAD -
 // upstream sops uses the path *up to* the list, matching its own
 // `walkSlice` which does not extend `path` per element.
 func walkAndDecrypt(node any, dek []byte, path []string) (any, error) {

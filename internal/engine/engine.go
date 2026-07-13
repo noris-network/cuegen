@@ -2,50 +2,92 @@ package engine
 
 import (
 	"bytes"
+	"cmp"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"syscall"
 
 	"cuelang.org/go/cue"
 	"cuelang.org/go/cue/cuecontext"
+	cueerrors "cuelang.org/go/cue/errors"
 	"cuelang.org/go/cue/inject/embed"
 	"cuelang.org/go/cue/load"
-	"cuelang.org/go/encoding/yaml"
+	cueyaml "cuelang.org/go/encoding/yaml"
+
+	"sigs.k8s.io/kustomize/kyaml/kio"
+	"sigs.k8s.io/kustomize/kyaml/kio/filters"
+	"sigs.k8s.io/kustomize/kyaml/yaml"
+	kyaml "sigs.k8s.io/yaml/kyaml"
 )
 
 // defaultExportPath is the CUE path consulted for the per-module object
 // collection when a module does not set `cuegen.spec.export` explicitly.
 const defaultExportPath = "export.objects"
 
-// FileFilter transforms the raw bytes of every CUE source file before the
-// loader sees them. It receives the absolute file path (for context-aware
-// decisions, e.g. detecting `.enc.cue`) and the raw bytes; it returns the
-// bytes CUE should compile. Default is identity. Set this to plug in
-// transparent decryption (SOPS, age, etc.) so CUE never knows a file was
-// encrypted and loads the cleartext contents normally.
-var FileFilter = func(path string, raw []byte) ([]byte, error) { return raw, nil }
+// Format selects the output encoding of a render.
+type Format int
 
-// Exec renders the cuegen module rooted at path. It behaves like
-// `cue cmd exp`: every object under the configured export path is serialized
-// as its own YAML document and the documents are emitted as a "---"-separated
-// stream to stdout.
+const (
+	// FormatYAML emits a "---"-separated stream of block-YAML documents.
+	FormatYAML Format = iota
+	// FormatKYAML emits KYAML: flow-style YAML with double-quoted strings.
+	FormatKYAML
+	// FormatJSON emits a single JSON object keyed by "<kind>/<name>".
+	FormatJSON
+)
+
+// Options configures a render.
+type Options struct {
+	// Format selects the output encoding; the zero value is FormatYAML.
+	Format Format
+
+	// FileFilter transforms the raw bytes of every file below the module
+	// root before the CUE loader sees them. It receives the absolute file
+	// path (for context-aware decisions, e.g. detecting `.enc.cue`) and the
+	// raw bytes; it returns the bytes CUE should compile. nil means
+	// identity. Plug in transparent decryption (SOPS, age, etc.) here so
+	// CUE never knows a file was encrypted and loads the cleartext contents
+	// normally. With CUE v0.17+ the resulting overlay also covers @embed
+	// targets, so a single hook catches both CUE source and embedded data.
+	FileFilter func(path string, raw []byte) ([]byte, error)
+}
+
+// Exec renders the cuegen module at path, resolved relative to the
+// process's current working directory - exactly like `cue cmd exp <path>`.
+// This is deliberate, not an oversight: CUE unifies a directory's package
+// with the same-named package declared in every ancestor directory up to
+// the module root, so e.g. `cuegen ./prod` merges values defined in ./prod with
+// those in the CWD (see examples/webapp/prod, which overrides a value hole
+// declared in the parent package). Passing an absolute path, or a path
+// outside the enclosing module's tree, is not supported - matching plain
+// `cue` CLI behavior. Every object under the configured export path is
+// serialized as its own document and the documents are emitted as a single
+// stream in the configured format.
 //
-// Unlike cuegen-ref, cuegen performs no $val scope plumbing, import
-// composition or generator expansion — v2 modules express all of that in CUE
-// itself. cuegen only loads (with transparent SOPS decryption via FileFilter)
-// and exports.
-func Exec(path string, stdout io.Writer) error {
+// cuegen performs no $val scope plumbing, import composition or generator
+// expansion - v2 modules express all of that in CUE itself. cuegen only
+// loads (with transparent decryption via Options.FileFilter) and exports.
+func Exec(path string, out io.Writer, opts Options) error {
 	if !strings.HasPrefix(path, "./") && !strings.HasPrefix(path, "/") && path != "." {
 		path = "./" + path
 	}
 
-	overlay, err := buildOverlay(path)
-	if err != nil {
-		return fmt.Errorf("build overlay for %q: %w", path, err)
+	// The overlay only ever contains files the filter changed; without a
+	// filter it would always be empty, so the walk is skipped entirely.
+	var overlay map[string]load.Source
+	if opts.FileFilter != nil {
+		var err error
+		overlay, err = buildOverlay(path, opts.FileFilter)
+		if err != nil {
+			return fmt.Errorf("build overlay for %q: %w", path, err)
+		}
 	}
+
 	cfg := &load.Config{Overlay: overlay}
 	insts := load.Instances([]string{path}, cfg)
 	if len(insts) == 0 {
@@ -79,35 +121,163 @@ func Exec(path string, stdout io.Writer) error {
 		return fmt.Errorf("collect objects from %s: %w", expPath, err)
 	}
 
-	// Render every document first so a single encode failure produces no
-	// partial output — matching `cue cmd exp`, which marshals the whole
-	// comprehension before printing.
-	docs := make([][]byte, 0, len(values))
+	if err := requireConcrete(values); err != nil {
+		return err
+	}
+
+	// Convert each CUE value to a kyaml RNode directly. CUE encodes to
+	// YAML bytes, yaml.Parse decodes a single document - no --- buffer
+	// concatenation or regex-based splitting. Encoding all documents
+	// before emitting any output matches `cue cmd exp`: a single
+	// failure produces no partial output.
+	nodes := make([]*yaml.RNode, 0, len(values))
 	for i, obj := range values {
-		b, err := yaml.Encode(obj)
+		b, err := cueyaml.Encode(obj)
 		if err != nil {
 			return fmt.Errorf("encode yaml for %s[%d]: %w", expPath, i, err)
 		}
-		docs = append(docs, b)
+		node, err := yaml.Parse(string(b))
+		if err != nil {
+			return fmt.Errorf("parse yaml for %s[%d]: %w", expPath, i, err)
+		}
+		nodes = append(nodes, node)
 	}
 
-	w := stdout
-	for i, b := range docs {
-		if i > 0 {
-			if _, err := w.Write([]byte("---\n")); err != nil {
-				return err
-			}
-		}
-		if _, err := w.Write(b); err != nil {
-			return err
+	// Apply filters directly on the node slice - no kio.Pipeline /
+	// ByteReader infrastructure needed. Canonically format fields and
+	// sort whitelisted lists, then sort documents by kind then
+	// metadata.name.
+	for _, f := range []kio.Filter{
+		filters.FormatFilter{},
+		sortByKindName{},
+	} {
+		nodes, err = f.Filter(nodes)
+		if err != nil {
+			return fmt.Errorf("filter output: %w", err)
 		}
 	}
-	if len(docs) > 0 {
-		if _, err := w.Write([]byte("\n")); err != nil {
-			return err
+
+	switch opts.Format {
+	case FormatKYAML:
+		return writeKyaml(nodes, out)
+	case FormatJSON:
+		return writeJSON(nodes, out)
+	case FormatYAML:
+		return kio.ByteWriter{Writer: out}.Write(nodes)
+	default:
+		return fmt.Errorf("unknown output format %d", opts.Format)
+	}
+}
+
+// writeJSON marshals the filtered nodes into a single indented JSON object.
+// Each key is "<kind>/<metadata.name>" - deliberately without the
+// namespace, which has no value for cuegen's use case. Two objects sharing
+// kind and name are therefore a hard duplicate-key error. Insertion order
+// from the filter pipeline is preserved - the output is built manually
+// rather than via a map, so json.MarshalIndent's alphabetical key sort
+// cannot silently override the pipeline's sort order.
+func writeJSON(nodes []*yaml.RNode, out io.Writer) error {
+	seen := make(map[string]bool, len(nodes))
+	var buf bytes.Buffer
+	buf.WriteString("{\n")
+	for i, node := range nodes {
+		meta, err := node.GetMeta()
+		if err != nil {
+			return fmt.Errorf("read metadata for node %d: %w", i, err)
 		}
+		key := meta.Kind + "/" + meta.Name
+		if seen[key] {
+			return fmt.Errorf("duplicate object key %q at node %d", key, i)
+		}
+		seen[key] = true
+
+		jb, err := node.MarshalJSON()
+		if err != nil {
+			return fmt.Errorf("marshal json for node %d: %w", i, err)
+		}
+		var ind bytes.Buffer
+		if err := json.Indent(&ind, jb, "", "  "); err != nil {
+			return fmt.Errorf("indent json for node %d: %w", i, err)
+		}
+		// Indent continuation lines by 2 spaces to align with the key.
+		indented := bytes.ReplaceAll(ind.Bytes(), []byte("\n"), []byte("\n  "))
+
+		kb, _ := json.Marshal(key)
+		buf.WriteString("  ")
+		buf.Write(kb)
+		buf.WriteString(": ")
+		buf.Write(indented)
+		if i < len(nodes)-1 {
+			buf.WriteByte(',')
+		}
+		buf.WriteByte('\n')
+	}
+	buf.WriteString("}\n")
+	_, err := out.Write(buf.Bytes())
+	return err
+}
+
+// writeKyaml serializes the filtered nodes to a YAML byte stream and
+// re-encodes it as KYAML - flow-style YAML with double-quoted strings.
+func writeKyaml(nodes []*yaml.RNode, out io.Writer) error {
+	var buf bytes.Buffer
+	for i, node := range nodes {
+		if i > 0 {
+			buf.WriteString("---\n")
+		}
+		s, err := node.String()
+		if err != nil {
+			return fmt.Errorf("serialize node %d for kyaml: %w", i, err)
+		}
+		buf.WriteString(s)
+	}
+	if err := (&kyaml.Encoder{}).FromYAML(&buf, out); err != nil {
+		return fmt.Errorf("encode kyaml: %w", err)
 	}
 	return nil
+}
+
+// sortByKindName sorts the document stream by .kind then .metadata.name,
+// mirroring `yq -P eval-all '[.] | sort_by(.kind,.metadata.name) | .[]'.
+type sortByKindName struct{}
+
+func (sortByKindName) Filter(nodes []*yaml.RNode) ([]*yaml.RNode, error) {
+	slices.SortStableFunc(nodes, func(a, b *yaml.RNode) int {
+		am, _ := a.GetMeta()
+		bm, _ := b.GetMeta()
+		return cmp.Or(
+			cmp.Compare(am.Kind, bm.Kind),
+			cmp.Compare(am.Name, bm.Name),
+		)
+	})
+	return nodes, nil
+}
+
+// requireConcrete validates every exported object recursively for
+// concreteness before any YAML encoding starts. Without this check a
+// non-concrete leaf (e.g. an unfilled `$value: string` hole) only surfaces
+// as a cryptic encoder error - "yaml: unsupported node string (*ast.Ident)"
+// - with no hint where in the chart the value lives. Validating up front
+// reports the CUE path and source position of every offending field, and
+// collects all of them in one pass so a broken chart can be fixed in a
+// single round instead of one render per hole.
+func requireConcrete(values []cue.Value) error {
+	var errs cueerrors.Error
+	for _, obj := range values {
+		if err := obj.Validate(cue.Concrete(true)); err != nil {
+			errs = cueerrors.Append(errs, cueerrors.Promote(err, "validate"))
+		}
+	}
+	if errs == nil {
+		return nil
+	}
+	// Details renders one block per offending field: the full CUE path,
+	// the reason (e.g. "incomplete value string"), and the source position
+	// on an indented follow-up line. Cwd shortens positions to relative
+	// paths.
+	cwd, _ := os.Getwd()
+	details := strings.TrimRight(cueerrors.Details(errs, &cueerrors.Config{Cwd: cwd}), "\n")
+	return fmt.Errorf("export contains non-concrete values, cannot render:\n%s", details)
 }
 
 // flattenObjects mirrors the `cue cmd exp` comprehension
@@ -116,9 +286,8 @@ func Exec(path string, stdout io.Writer) error {
 //
 // i.e. it descends two levels (kind -> name -> object) and returns the leaf
 // object values in iteration order. Objects are taken as values straight from
-// the built tree — never re-embedded into a list — so hidden fields and
-// dynamically generated secret data are not re-evaluated (see the rationale
-// in case2/exp_tool.cue).
+// the built tree - never re-embedded into a list - so hidden fields and
+// dynamically generated secret data are not re-evaluated.
 func flattenObjects(objs cue.Value) ([]cue.Value, error) {
 	kinds, err := objs.Fields()
 	if err != nil {
@@ -129,7 +298,7 @@ func flattenObjects(objs cue.Value) ([]cue.Value, error) {
 		kind := kinds.Value()
 		names, err := kind.Fields()
 		if err != nil {
-			return nil, fmt.Errorf("iterate objects of kind %q: %w", kinds.Label(), err)
+			return nil, fmt.Errorf("iterate objects of kind %q: %w", kinds.Selector(), err)
 		}
 		for names.Next() {
 			out = append(out, names.Value())
@@ -157,42 +326,32 @@ func exportPath(node cue.Value) (string, error) {
 	return s, nil
 }
 
-// sameBytes returns true if a and b share the same backing array and length.
-// This is the fast path for FileFilter: the identity filter returns its
-// input slice unchanged, and we'd rather skip a full bytes.Equal on every
-// CUE source file.
-func sameBytes(a, b []byte) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	if len(a) == 0 {
-		return true
-	}
-	return &a[0] == &b[0]
-}
+// fileID identifies a file by device and inode - the dedup key for the
+// symlink-following overlay walk.
+type fileID struct{ dev, ino uint64 }
 
-// buildOverlay walks `root` for files, runs each through FileFilter, and
-// returns the absolute-path -> load.Source map for load.Config.Overlay. With
-// CUE v0.17+ this overlay also covers @embed targets, so a single hook
-// catches both cue source and embedded data.
-//
-// The walk follows symlinks (module trees use them heavily). Visited entries
-// are deduplicated by (device, inode) when the platform exposes them — taken
-// from the os.Stat we already perform, so there is no extra syscall — so the
-// same underlying file reached via several symlink-distinct paths is read and
-// filtered once. On platforms without a syscall.Stat_t the walked path string
-// is used as the dedup key. As a belt-and-braces guard against actual symlink
-// loops the recursion is capped at maxOverlayDepth — deeper than any module
-// tree observed in practice.
+// maxOverlayDepth caps the overlay walk recursion as a belt-and-braces
+// guard against actual symlink loops - deeper than any module tree
+// observed in practice.
 const maxOverlayDepth = 20
 
-func buildOverlay(root string) (map[string]load.Source, error) {
+// buildOverlay walks root (relative to the CWD or absolute) for files, runs
+// each through filter, and returns the absolute-path -> load.Source map for
+// load.Config.Overlay, containing only files the filter actually changed.
+//
+// The walk follows symlinks (module trees use them heavily). Visited entries
+// are deduplicated by (device, inode) - taken from the os.Stat we already
+// perform, so there is no extra syscall - so the same underlying file
+// reached via several symlink-distinct paths is read and filtered once.
+// cuegen is Unix-only (see the command doc), so stat always carries inode
+// metadata.
+func buildOverlay(root string, filter func(path string, raw []byte) ([]byte, error)) (map[string]load.Source, error) {
 	absRoot, err := filepath.Abs(root)
 	if err != nil {
 		return nil, err
 	}
 	overlay := map[string]load.Source{}
-	visited := map[string]bool{}
+	visited := map[fileID]bool{}
 	var walk func(p string, depth int) error
 	walk = func(p string, depth int) error {
 		if depth > maxOverlayDepth {
@@ -202,16 +361,15 @@ func buildOverlay(root string) (map[string]load.Source, error) {
 		if err != nil {
 			return fmt.Errorf("stat %s: %w", p, err)
 		}
-		// Dedup by inode when available (covers symlink-distinct paths to the
-		// same file); fall back to the walked path otherwise.
-		key := p
-		if st, ok := info.Sys().(*syscall.Stat_t); ok {
-			key = fmt.Sprintf("ino:%d:%d", st.Dev, st.Ino)
+		st, ok := info.Sys().(*syscall.Stat_t)
+		if !ok {
+			return fmt.Errorf("stat %s: no inode metadata (unsupported platform)", p)
 		}
-		if visited[key] {
+		id := fileID{dev: uint64(st.Dev), ino: uint64(st.Ino)}
+		if visited[id] {
 			return nil
 		}
-		visited[key] = true
+		visited[id] = true
 		if info.IsDir() {
 			// Skip VCS metadata. The walker would otherwise descend into
 			// nested `.git` trees that live inside recursively-mounted
@@ -236,14 +394,13 @@ func buildOverlay(root string) (map[string]load.Source, error) {
 		if err != nil {
 			return fmt.Errorf("read %s: %w", p, err)
 		}
-		filtered, err := FileFilter(p, raw)
+		filtered, err := filter(p, raw)
 		if err != nil {
 			return fmt.Errorf("filter %s: %w", p, err)
 		}
-		// Identity filter is the common case (no SOPS file). Skip the
-		// content compare when the filter returned the same backing slice
-		// and only fall back to bytes.Equal otherwise.
-		if sameBytes(filtered, raw) || bytes.Equal(filtered, raw) {
+		// The identity case (no encrypted file) is the common one: only
+		// files the filter changed enter the overlay.
+		if bytes.Equal(filtered, raw) {
 			return nil
 		}
 		overlay[p] = load.FromBytes(filtered)

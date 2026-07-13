@@ -1,0 +1,13 @@
+{
+  "ConfigMap/demo": {
+    "apiVersion": "v1",
+    "data": {
+      "greeting": "Hello from cuegen!"
+    },
+    "kind": "ConfigMap",
+    "metadata": {
+      "name": "demo",
+      "namespace": "default"
+    }
+  }
+}
