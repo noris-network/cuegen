@@ -4,6 +4,7 @@ metadata:
   name: app-config
   namespace: default
 data:
+  ENVIRONMENT: production
   LOG_LEVEL: info
   PORT: "8080"
 ---

@@ -2,6 +2,7 @@
   "ConfigMap/app-config": {
     "apiVersion": "v1",
     "data": {
+      "ENVIRONMENT": "production",
       "LOG_LEVEL": "info",
       "PORT": "8080"
     },
