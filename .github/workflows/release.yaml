@@ -20,6 +20,9 @@ jobs:
         id: get_version
         run: echo "VERSION=${GITHUB_REF##*/}" >> "${GITHUB_OUTPUT}"
 
+      - name: Install sops
+        run: go install github.com/getsops/sops/v3/cmd/sops@v3.10.2
+
       - name: Run Tests
         run: go test ./...
 

@@ -43,6 +43,19 @@ func sopsEncrypt(t *testing.T, plaintext []byte, recipient, inputType, outputTyp
 	return out
 }
 
+// requireSopsCLI skips the calling test when the sops CLI is not on PATH.
+// Several integration tests shell out to `sops encrypt` to produce ciphertext;
+// the CI release runner does not install sops, so those tests must skip
+// gracefully there instead of failing hard. Tests that exercise the pure-Go
+// decrypt path (sopsFilter / looksLikeSops / sopsFormat) need no CLI and are
+// unaffected.
+func requireSopsCLI(t *testing.T) {
+	t.Helper()
+	if _, err := exec.LookPath("sops"); err != nil {
+		t.Skipf("sops CLI not found in PATH: %v", err)
+	}
+}
+
 // withAgeKey runs fn with SOPS_AGE_KEY=key, so the sops package loads only
 // the test identity for decryption. SOPS_AGE_KEY_FILE is unset to avoid the
 // sops package trying to open an empty path. t.Setenv cannot manage
@@ -94,6 +107,7 @@ func TestLooksLikeSops(t *testing.T) {
 // TestSopsFilterBinaryStore encrypts a CUE source snippet as a sops binary
 // store and verifies sopsFilter decrypts it back to the original plaintext.
 func TestSopsFilterBinaryStore(t *testing.T) {
+	requireSopsCLI(t)
 	priv, pub := genAgeIdentity(t)
 	plaintext := []byte("package main\n\nvalue: \"hello\"\n")
 	encrypted := sopsEncrypt(t, plaintext, pub, "binary", "binary", "secret.enc.cue")
@@ -114,6 +128,7 @@ func TestSopsFilterBinaryStore(t *testing.T) {
 // TestSopsFilterNativeYAML encrypts a YAML file with sops and verifies
 // sopsFilter decrypts it, stripping the sops metadata block.
 func TestSopsFilterNativeYAML(t *testing.T) {
+	requireSopsCLI(t)
 	priv, pub := genAgeIdentity(t)
 	plaintext := []byte("tokens:\n    USER: svc-foo\n    PASS: s3cret\n")
 	encrypted := sopsEncrypt(t, plaintext, pub, "yaml", "yaml", "config.enc.yaml")
@@ -136,6 +151,7 @@ func TestSopsFilterNativeYAML(t *testing.T) {
 // the .yml extension, exercising the .yml branch of sopsFormat end-to-end
 // through sopsFilter (TestSopsFormat covers the mapping in isolation only).
 func TestSopsFilterNativeYMLExtension(t *testing.T) {
+	requireSopsCLI(t)
 	priv, pub := genAgeIdentity(t)
 	plaintext := []byte("tokens:\n    USER: svc-foo\n")
 	encrypted := sopsEncrypt(t, plaintext, pub, "yaml", "yaml", "config.enc.yml")
@@ -159,6 +175,7 @@ func TestSopsFilterNativeYMLExtension(t *testing.T) {
 // TestSopsFilterNativeJSON encrypts a JSON file with sops and verifies
 // sopsFilter decrypts it, stripping the sops metadata block.
 func TestSopsFilterNativeJSON(t *testing.T) {
+	requireSopsCLI(t)
 	priv, pub := genAgeIdentity(t)
 	plaintext := []byte(`{"tokens":{"USER":"svc-foo","PASS":"s3cret"}}`)
 	encrypted := sopsEncrypt(t, plaintext, pub, "json", "json", "config.enc.json")
@@ -182,6 +199,7 @@ func TestSopsFilterNativeJSON(t *testing.T) {
 // A genuine age-encrypted sops file with the wrong key configured must fail
 // hard - no ciphertext ever reaches the CUE compiler or a deployment.
 func TestSopsFilterHardFailureOnWrongKey(t *testing.T) {
+	requireSopsCLI(t)
 	_, pub := genAgeIdentity(t)
 	plaintext := []byte("tokens:\n    TOKEN: secret\n")
 	encrypted := sopsEncrypt(t, plaintext, pub, "yaml", "yaml", "secrets.enc.yaml")
