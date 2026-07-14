@@ -111,11 +111,16 @@ func main() {
 	args = filtered
 
 	// CUEGEN_WIDE=true enables wide sequence indentation without the -wide
-	// flag.
+	// flag, e.g. for ArgoCD CMP deployments where CLI flags aren't easily
+	// passed. Invalid values are rejected with a diagnostic, consistent
+	// with the strict flag validation; the -wide flag takes precedence
+	// (both combine with OR).
 	if v, ok := os.LookupEnv("CUEGEN_WIDE"); ok {
-		if b, err := strconv.ParseBool(v); err == nil {
-			useWide = useWide || b
+		b, err := strconv.ParseBool(v)
+		if err != nil {
+			log.Fatalf("CUEGEN_WIDE: %q is not a valid boolean (expect true/false/1/0)", v)
 		}
+		useWide = useWide || b
 	}
 
 	if cmpSHA1Set && !isValidSHA1(cmpSHA1) {

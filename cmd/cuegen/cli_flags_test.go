@@ -727,6 +727,27 @@ func TestWideEnvVar(t *testing.T) {
 	}
 }
 
+// TestWideEnvVarInvalid verifies CUEGEN_WIDE with a non-boolean value is
+// rejected with a diagnostic, consistent with the strict flag validation.
+func TestWideEnvVarInvalid(t *testing.T) {
+	dir := t.TempDir()
+	writeModuleWithList(t, dir)
+
+	for _, val := range []string{"yes", "banana", "2", " "} {
+		t.Setenv("CUEGEN_WIDE", val)
+		stdout, stderr, exit := runCuegen(t, dir, ".")
+		if exit != 1 {
+			t.Errorf("CUEGEN_WIDE=%q: expected exit 1, got %d", val, exit)
+		}
+		if stdout != "" {
+			t.Errorf("CUEGEN_WIDE=%q: stdout should be empty, got %q", val, stdout)
+		}
+		if !strings.Contains(stderr, "CUEGEN_WIDE") || !strings.Contains(stderr, "not a valid boolean") {
+			t.Errorf("CUEGEN_WIDE=%q: stderr should diagnose invalid boolean, got %q", val, stderr)
+		}
+	}
+}
+
 // writeModuleWithList lays out a minimal v2 module whose Deployment has a
 // containers list, so the compact vs wide indentation difference is visible.
 func writeModuleWithList(t *testing.T, dir string) {
