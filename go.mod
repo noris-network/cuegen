@@ -4,7 +4,7 @@ go 1.26
 
 require (
 	cuelang.org/go v0.17.0
-	filippo.io/age v1.2.1
+	filippo.io/age v1.3.1
 	github.com/getsops/sops/v3 v3.10.2
 	sigs.k8s.io/kustomize/kyaml v0.21.1
 	sigs.k8s.io/yaml v1.6.0
@@ -23,6 +23,7 @@ require (
 	cloud.google.com/go/storage v1.51.0 // indirect
 	cuelabs.dev/go/oci/ociregistry v0.0.0-20260601085548-328ff8e2c943 // indirect
 	filippo.io/edwards25519 v1.1.0 // indirect
+	filippo.io/hpke v0.4.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.18.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.9.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/internal v1.11.1 // indirect
