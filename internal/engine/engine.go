@@ -462,7 +462,9 @@ func buildOverlay(root string, filter func(path string, raw []byte) ([]byte, err
 			}
 			entries, err := os.ReadDir(p)
 			if err != nil {
-				return fmt.Errorf("read dir %s: %w", p, err)
+				// *fs.PathError already includes the path and operation;
+				// wrapping would duplicate them ("read dir /x: open /x: ...").
+				return err
 			}
 			ancestors = append(ancestors, id)
 			for _, e := range entries {
@@ -483,7 +485,8 @@ func buildOverlay(root string, filter func(path string, raw []byte) ([]byte, err
 		}
 		raw, err := os.ReadFile(p)
 		if err != nil {
-			return fmt.Errorf("read %s: %w", p, err)
+			// *fs.PathError already includes the path and operation.
+			return err
 		}
 		filtered, err := filter(p, raw)
 		if err != nil {
