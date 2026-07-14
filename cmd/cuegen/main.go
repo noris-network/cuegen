@@ -276,14 +276,16 @@ func isV2(apiVersion string) bool {
 // 0). The leading "v" is optional.
 func majorVersion(s string) (int, bool) {
 	s = strings.TrimPrefix(s, "v")
-	end := strings.IndexFunc(s, func(r rune) bool { return r < '0' || r > '9' })
-	if end == -1 {
-		end = len(s)
-	}
-	if end == 0 {
+	// TrimLeftFunc consumes the leading run of digit runes; the remainder
+	// begins at the first non-digit (or is empty). Their lengths differ by
+	// the length of that digit run, so num is the leading digit group
+	// without an explicit IndexFunc/slice.
+	rest := strings.TrimLeftFunc(s, func(r rune) bool { return r >= '0' && r <= '9' })
+	num := s[:len(s)-len(rest)]
+	if num == "" {
 		return 0, false
 	}
-	n, err := strconv.Atoi(s[:end])
+	n, err := strconv.Atoi(num)
 	if err != nil {
 		return 0, false
 	}

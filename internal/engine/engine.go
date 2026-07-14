@@ -90,6 +90,12 @@ type Options struct {
 	// file was encrypted and loads the cleartext contents normally. With
 	// CUE v0.17+ the resulting overlay also covers @embed targets, so a
 	// single hook catches both CUE source and embedded data.
+	//
+	// Setting a filter is not free: the overlay walk reads every regular
+	// file in the module tree into memory (bounded per file by
+	// maxFilterFileSize) and runs the filter on each, on every render. For
+	// large mono-repos this is a measurable cost paid even when no file is
+	// actually encrypted - the filter is the only way to find out.
 	FileFilter FileFilter
 }
 
@@ -218,6 +224,7 @@ func Exec(path string, out io.Writer, opts Options) error {
 func writeJSON(nodes []*yaml.RNode, out io.Writer) error {
 	seen := make(map[string]bool, len(nodes))
 	var buf bytes.Buffer
+	buf.Grow(1 << 16)
 	buf.WriteString("{\n")
 	for i, node := range nodes {
 		meta, err := node.GetMeta()
@@ -234,13 +241,6 @@ func writeJSON(nodes []*yaml.RNode, out io.Writer) error {
 		if err != nil {
 			return fmt.Errorf("marshal json for node %d: %w", i, err)
 		}
-		var ind bytes.Buffer
-		if err := json.Indent(&ind, jb, "", "  "); err != nil {
-			return fmt.Errorf("indent json for node %d: %w", i, err)
-		}
-		// Indent continuation lines by 2 spaces to align with the key.
-		indented := bytes.ReplaceAll(ind.Bytes(), []byte("\n"), []byte("\n  "))
-
 		kb, err := json.Marshal(key)
 		if err != nil {
 			return fmt.Errorf("marshal json key for node %d: %w", i, err)
@@ -248,7 +248,14 @@ func writeJSON(nodes []*yaml.RNode, out io.Writer) error {
 		buf.WriteString("  ")
 		buf.Write(kb)
 		buf.WriteString(": ")
-		buf.Write(indented)
+		// json.Indent appends to buf; its prefix ("  ") is prepended to every
+		// line after the first, so continuation lines align two spaces under
+		// the key. This reproduces the previous manual indentation (a second
+		// json.Indent pass plus a bytes.ReplaceAll) in a single pass, with no
+		// intermediate buffer and no \n rewriting.
+		if err := json.Indent(&buf, jb, "  ", "  "); err != nil {
+			return fmt.Errorf("indent json for node %d: %w", i, err)
+		}
 		if i < len(nodes)-1 {
 			buf.WriteByte(',')
 		}
@@ -471,13 +478,15 @@ func withinRoot(root, p string) (bool, error) {
 // each through filter, and returns the absolute-path -> load.Source map for
 // load.Config.Overlay, containing only files the filter actually changed.
 //
-// The walk follows symlinks (module trees use them heavily). Symlink loops
-// are detected via an ancestor stack: each directory's (device, inode) is
-// checked against the chain of directories from the walk root to the
-// current node, so recursing into an already-visited ancestor is skipped.
-// Unlike a global visited set, this lets the same file reached via distinct
-// symlink paths get its own overlay entry - CUE may load it through either
-// path, and every path must resolve to the filtered content.
+// The walk follows symlinks (module trees use them heavily) but is confined
+// to the module tree: a symlink whose target escapes root is skipped rather
+// than descended into, so the walk never traverses the host filesystem.
+// Symlink loops are detected via an ancestor stack: each directory's
+// (device, inode) is checked against the chain of directories from the walk
+// root to the current node, so recursing into an already-visited ancestor is
+// skipped. Unlike a global visited set, this lets the same file reached via
+// distinct symlink paths get its own overlay entry - CUE may load it through
+// either path, and every path must resolve to the filtered content.
 // cuegen is Unix-only (see the command doc), so stat always carries inode
 // metadata.
 func buildOverlay(root string, filter FileFilter) (map[string]load.Source, error) {
@@ -537,10 +546,8 @@ func buildOverlay(root string, filter FileFilter) (map[string]load.Source, error
 			// Cycle detection: if this directory is already an ancestor
 			// on the current path, a symlink loop would cause infinite
 			// recursion - skip it.
-			for _, a := range ancestors {
-				if a == id {
-					return nil
-				}
+			if slices.Contains(ancestors, id) {
+				return nil
 			}
 			// Skip VCS metadata. The walker would otherwise descend into
 			// nested `.git` trees that live inside recursively-mounted

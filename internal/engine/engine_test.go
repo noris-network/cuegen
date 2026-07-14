@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"cuelang.org/go/cue"
+	"cuelang.org/go/cue/cuecontext"
 	"cuelang.org/go/cue/load"
 )
 
@@ -805,4 +807,160 @@ export: objects: configMap: cm: {
 	if !strings.Contains(err.Error(), "yaml") {
 		t.Errorf("error should mention yaml encoding, got: %v", err)
 	}
+}
+
+// --- unit tests for the leaf helpers ----------------------------------------
+
+// TestFlattenObjectsRejectsNonStruct verifies flattenObjects errors when the
+// export path holds something other than the expected two-level kind->name
+// struct (a list, scalar, or null). The error path was previously exercised
+// only indirectly through a full render.
+func TestFlattenObjectsRejectsNonStruct(t *testing.T) {
+	ctx := cuecontext.New()
+	for _, tc := range []struct {
+		name string
+		src  string
+	}{
+		{"list", `[1, 2, 3]`},
+		{"scalar", `"s"`},
+		{"null", `null`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var v cue.Value = ctx.CompileString(tc.src)
+			if v.Err() != nil {
+				t.Fatalf("compile %s: %v", tc.name, v.Err())
+			}
+			if _, err := flattenObjects(v); err == nil {
+				t.Fatalf("expected error for %s, got nil", tc.name)
+			}
+		})
+	}
+}
+
+// TestExportPathDefaultsAndValidation covers exportPath in isolation: the
+// default kicks in when cuegen.spec.export is absent, and a non-string value
+// is rejected rather than silently coerced.
+func TestExportPathDefaultsAndValidation(t *testing.T) {
+	ctx := cuecontext.New()
+
+	t.Run("defaults when absent", func(t *testing.T) {
+		v := ctx.CompileString(`{}`)
+		if v.Err() != nil {
+			t.Fatal(v.Err())
+		}
+		got, err := exportPath(v)
+		if err != nil || got != defaultExportPath {
+			t.Fatalf("got %q err %v, want %q", got, err, defaultExportPath)
+		}
+	})
+
+	t.Run("non-string errors", func(t *testing.T) {
+		v := ctx.CompileString(`cuegen: spec: export: 42`)
+		if v.Err() != nil {
+			t.Fatal(v.Err())
+		}
+		if _, err := exportPath(v); err == nil {
+			t.Fatal("expected error for non-string export path, got nil")
+		}
+	})
+
+	t.Run("explicit value honored", func(t *testing.T) {
+		v := ctx.CompileString(`cuegen: spec: export: "out.things"`)
+		if v.Err() != nil {
+			t.Fatal(v.Err())
+		}
+		got, err := exportPath(v)
+		if err != nil || got != "out.things" {
+			t.Fatalf("got %q err %v, want %q", got, err, "out.things")
+		}
+	})
+}
+
+// TestExecKYAMLFlowStyle pins the KYAML output shape directly (flow style,
+// double-quoted strings) rather than relying on the indirect -sha1 -kyaml
+// hash equivalence tested in the cmd package.
+func TestExecKYAMLFlowStyle(t *testing.T) {
+	dir := t.TempDir()
+	writeModule(t, dir, "")
+	writeFile(t, dir, "export.cue", `package control
+
+export: objects: configMap: cm: {
+	apiVersion: "v1"
+	kind:       "ConfigMap"
+	metadata: name: "cm"
+	data: greeting: "hi"
+}
+`)
+
+	t.Chdir(dir)
+	var out bytes.Buffer
+	if err := Exec(".", &out, Options{Format: FormatKYAML}); err != nil {
+		t.Fatalf("Exec: %v", err)
+	}
+	got := out.String()
+	for _, want := range []string{`kind: "ConfigMap"`, `greeting: "hi"`, `name: "cm"`} {
+		if !strings.Contains(got, want) {
+			t.Errorf("kyaml output missing %q\n%s", want, got)
+		}
+	}
+}
+
+// TestWriteJSONShape verifies writeJSON produces the documented key scheme
+// ("<kind>/<name>"), a key line indented exactly two spaces, and valid JSON.
+// It guards the refactor that replaced the manual bytes.ReplaceAll
+// indentation with a single json.Indent pass: the output shape (key at two
+// spaces, inner-object properties at four) must be preserved.
+func TestWriteJSONShape(t *testing.T) {
+	dir := t.TempDir()
+	writeModule(t, dir, "")
+	writeFile(t, dir, "export.cue", `package control
+
+export: objects: configMap: cm: {
+	apiVersion: "v1"
+	kind:       "ConfigMap"
+	metadata: name: "cm"
+	data: greeting: "hi"
+}
+`)
+
+	t.Chdir(dir)
+	var out bytes.Buffer
+	if err := Exec(".", &out, Options{Format: FormatJSON}); err != nil {
+		t.Fatalf("Exec: %v", err)
+	}
+
+	// Must be valid JSON with the expected single key.
+	var obj map[string]any
+	if err := json.Unmarshal(out.Bytes(), &obj); err != nil {
+		t.Fatalf("invalid JSON: %v\n%s", err, out.String())
+	}
+	if _, ok := obj["ConfigMap/cm"]; !ok || len(obj) != 1 {
+		t.Fatalf("want single key ConfigMap/cm, got %v", obj)
+	}
+
+	// The key line must be indented exactly two spaces (aligned under the
+	// opening brace), and the inner object's first property exactly four -
+	// two for the key column plus two for the object's own indent. This is
+	// the shape both the old ReplaceAll path and the new single-pass
+	// json.Indent produce; pinning it catches an indentation regression.
+	lines := strings.Split(out.String(), "\n")
+	keyLine := `  "ConfigMap/cm": {`
+	firstProp := `    "apiVersion": "v1",`
+	if !slicesContains(lines, keyLine) {
+		t.Errorf("missing key line %q (wrong key-column indent?)\n%s", keyLine, out.String())
+	}
+	if !slicesContains(lines, firstProp) {
+		t.Errorf("missing inner property %q (wrong object-body indent?)\n%s", firstProp, out.String())
+	}
+}
+
+// slicesContains reports whether ss contains s, a tiny local helper so the
+// test avoids importing slices solely for a membership check.
+func slicesContains(ss []string, s string) bool {
+	for _, v := range ss {
+		if v == s {
+			return true
+		}
+	}
+	return false
 }
