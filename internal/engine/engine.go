@@ -353,8 +353,8 @@ func exportPath(node cue.Value) (string, error) {
 	return s, nil
 }
 
-// fileID identifies a file by device and inode - the dedup key for the
-// symlink-following overlay walk.
+// fileID identifies a file or directory by device and inode - the key for
+// symlink-loop detection during the overlay walk.
 type fileID struct{ dev, ino uint64 }
 
 // maxOverlayDepth caps the overlay walk recursion as a belt-and-braces
@@ -388,10 +388,13 @@ func moduleRoot() (string, error) {
 // each through filter, and returns the absolute-path -> load.Source map for
 // load.Config.Overlay, containing only files the filter actually changed.
 //
-// The walk follows symlinks (module trees use them heavily). Visited entries
-// are deduplicated by (device, inode) - taken from the os.Stat we already
-// perform, so there is no extra syscall - so the same underlying file
-// reached via several symlink-distinct paths is read and filtered once.
+// The walk follows symlinks (module trees use them heavily). Symlink loops
+// are detected via an ancestor stack: each directory's (device, inode) is
+// checked against the chain of directories from the walk root to the
+// current node, so recursing into an already-visited ancestor is skipped.
+// Unlike a global visited set, this lets the same file reached via distinct
+// symlink paths get its own overlay entry - CUE may load it through either
+// path, and every path must resolve to the filtered content.
 // cuegen is Unix-only (see the command doc), so stat always carries inode
 // metadata.
 func buildOverlay(root string, filter func(path string, raw []byte) ([]byte, error)) (map[string]load.Source, error) {
@@ -400,9 +403,8 @@ func buildOverlay(root string, filter func(path string, raw []byte) ([]byte, err
 		return nil, err
 	}
 	overlay := map[string]load.Source{}
-	visited := map[fileID]bool{}
-	var walk func(p string, depth int) error
-	walk = func(p string, depth int) error {
+	var walk func(p string, depth int, ancestors []fileID) error
+	walk = func(p string, depth int, ancestors []fileID) error {
 		if depth > maxOverlayDepth {
 			return fmt.Errorf("overlay walk exceeded depth %d at %s (possible symlink loop)", maxOverlayDepth, p)
 		}
@@ -415,11 +417,15 @@ func buildOverlay(root string, filter func(path string, raw []byte) ([]byte, err
 			return fmt.Errorf("stat %s: no inode metadata (unsupported platform)", p)
 		}
 		id := fileID{dev: uint64(st.Dev), ino: uint64(st.Ino)}
-		if visited[id] {
-			return nil
-		}
-		visited[id] = true
 		if info.IsDir() {
+			// Cycle detection: if this directory is already an ancestor
+			// on the current path, a symlink loop would cause infinite
+			// recursion - skip it.
+			for _, a := range ancestors {
+				if a == id {
+					return nil
+				}
+			}
 			// Skip VCS metadata. The walker would otherwise descend into
 			// nested `.git` trees that live inside recursively-mounted
 			// module sources (cue.mod/pkg/<dep>/cue.mod/pkg/<dep>/.git/…)
@@ -432,8 +438,9 @@ func buildOverlay(root string, filter func(path string, raw []byte) ([]byte, err
 			if err != nil {
 				return fmt.Errorf("read dir %s: %w", p, err)
 			}
+			ancestors = append(ancestors, id)
 			for _, e := range entries {
-				if err := walk(filepath.Join(p, e.Name()), depth+1); err != nil {
+				if err := walk(filepath.Join(p, e.Name()), depth+1, ancestors); err != nil {
 					return err
 				}
 			}
@@ -455,7 +462,7 @@ func buildOverlay(root string, filter func(path string, raw []byte) ([]byte, err
 		overlay[p] = load.FromBytes(filtered)
 		return nil
 	}
-	if err := walk(absRoot, 0); err != nil {
+	if err := walk(absRoot, 0, nil); err != nil {
 		return nil, err
 	}
 	return overlay, nil

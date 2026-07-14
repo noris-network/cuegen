@@ -380,3 +380,52 @@ export: objects: configMap: sub: {
 		t.Errorf("render . contains unfiltered marker:\n%s", out.String())
 	}
 }
+
+// TestOverlaySymlinkAliasGetsEntry pins the fix for a bug where the global
+// (dev,ino) visited set caused the second symlink path to the same file to
+// be skipped entirely - no overlay entry, so CUE read the raw (encrypted)
+// bytes from disk. The fix replaces the visited set with ancestor-stack
+// cycle detection: each alias path gets its own overlay entry.
+//
+// Layout: a real directory "real/" with a filtered file, plus two symlinks
+// "a/" and "b/" pointing to "real/". The filter must produce overlay entries
+// for BOTH a/data.cue and b/data.cue.
+func TestOverlaySymlinkAliasGetsEntry(t *testing.T) {
+	dir := t.TempDir()
+	realDir := filepath.Join(dir, "real")
+	if err := os.MkdirAll(realDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	// A file whose content the filter will transform.
+	dataFile := filepath.Join(realDir, "data.cue")
+	if err := os.WriteFile(dataFile, []byte("MARKER_UNFILTERED"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// Two symlinks to the same directory.
+	if err := os.Symlink(realDir, filepath.Join(dir, "a")); err != nil {
+		t.Skipf("symlink not supported: %v", err)
+	}
+	if err := os.Symlink(realDir, filepath.Join(dir, "b")); err != nil {
+		t.Skipf("symlink not supported: %v", err)
+	}
+
+	filter := func(path string, raw []byte) ([]byte, error) {
+		return []byte(strings.ReplaceAll(string(raw), "MARKER_UNFILTERED", "decrypted")), nil
+	}
+
+	overlay, err := buildOverlay(dir, filter)
+	if err != nil {
+		t.Fatalf("buildOverlay: %v", err)
+	}
+
+	// Both symlink paths must have overlay entries.
+	aPath := filepath.Join(dir, "a", "data.cue")
+	bPath := filepath.Join(dir, "b", "data.cue")
+	if _, ok := overlay[aPath]; !ok {
+		t.Errorf("overlay missing entry for %s (first symlink path)", aPath)
+	}
+	if _, ok := overlay[bPath]; !ok {
+		t.Errorf("overlay missing entry for %s (second symlink path) - "+
+			"global visited set skipped the alias", bPath)
+	}
+}
