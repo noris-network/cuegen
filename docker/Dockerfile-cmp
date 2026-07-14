@@ -1,6 +1,6 @@
 FROM        docker.io/nxcc/cuegen-cmp:v0.16.8 AS legacy
 
-FROM        golang:1.26.4 AS builder
+FROM        golang:1.26.5 AS builder
 WORKDIR     /go/src/app
 ARG         VERSION
 COPY        . ./
