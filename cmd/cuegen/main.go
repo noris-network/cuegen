@@ -203,6 +203,12 @@ func main() {
 		if err := engine.Exec(path, &buf, opts); err != nil {
 			log.Fatalln(err)
 		}
+		// SHA-1 is used here as a drift checksum, not a security primitive:
+		// the threat model is accidental output change (e.g. a bumped
+		// dependency altering the rendered manifest), not adversarial
+		// collision. SHA-1 is retained for backward compatibility with
+		// existing -cmp-sha1 consumers and CI pipelines; switching to a
+		// stronger hash would break those without adding security value.
 		sum := sha1.Sum(buf.Bytes())
 		computed := fmt.Sprintf("%x", sum)
 		if hashOnly {
@@ -347,7 +353,8 @@ func stringLit(expr ast.Expr) (string, bool) {
 }
 
 // isValidSHA1 reports whether s is a 40-character hex string (either case)
-// - the textual representation of a SHA1 digest.
+// - the textual representation of a SHA1 digest. SHA-1 is used for drift
+// detection only (see the comment at the sha1.Sum call site).
 func isValidSHA1(s string) bool {
 	b, err := hex.DecodeString(s)
 	return err == nil && len(b) == sha1.Size
