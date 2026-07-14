@@ -474,6 +474,13 @@ func buildOverlay(root string, filter func(path string, raw []byte) ([]byte, err
 			}
 			return nil
 		}
+		// Skip non-regular files (FIFOs, sockets, devices). os.ReadFile
+		// on a FIFO blocks until a writer connects, hanging the render;
+		// a socket or device read yields unpredictable bytes. CUE only
+		// loads regular files, so these are irrelevant.
+		if !info.Mode().IsRegular() {
+			return nil
+		}
 		// Skip files too large to filter safely. The module-wide walk
 		// can encounter multi-GB blobs; loading them into memory risks
 		// exhaustion. CUE source files and sops-encrypted data are far

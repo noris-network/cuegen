@@ -6,7 +6,11 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
+	"time"
+
+	"cuelang.org/go/cue/load"
 )
 
 // writeFile is a tiny helper to lay out a minimal cuegen module in dir.
@@ -544,5 +548,50 @@ func TestOverlaySkipsVendoringDirs(t *testing.T) {
 		if _, ok := overlay[filepath.Join(dir, "cue.mod", sub, "dep.cue")]; ok {
 			t.Errorf("overlay should not contain cue.mod/%s/dep.cue (vendoring dir skipped)", sub)
 		}
+	}
+}
+
+// TestOverlaySkipsNonRegularFiles verifies that non-regular files (FIFOs,
+// sockets, devices) are skipped. os.ReadFile on a FIFO blocks until a writer
+// connects, which would hang the render. A timeout guard ensures the walk
+// returns promptly even if the FIFO is opened.
+func TestOverlaySkipsNonRegularFiles(t *testing.T) {
+	dir := t.TempDir()
+
+	// A regular file the filter will transform.
+	if err := os.WriteFile(filepath.Join(dir, "data.cue"), []byte("MARKER"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// A FIFO (named pipe) - os.ReadFile would block on this.
+	fifoPath := filepath.Join(dir, "pipe.fifo")
+	if err := syscall.Mkfifo(fifoPath, 0o644); err != nil {
+		t.Skipf("mkfifo not supported: %v", err)
+	}
+
+	filter := func(path string, raw []byte) ([]byte, error) {
+		return []byte(strings.ReplaceAll(string(raw), "MARKER", "decrypted")), nil
+	}
+
+	done := make(chan struct{})
+	var overlay map[string]load.Source
+	var walkErr error
+	go func() {
+		overlay, walkErr = buildOverlay(dir, filter)
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("buildOverlay hung on FIFO (non-regular file not skipped)")
+	}
+	if walkErr != nil {
+		t.Fatalf("buildOverlay: %v", walkErr)
+	}
+	if _, ok := overlay[filepath.Join(dir, "data.cue")]; !ok {
+		t.Errorf("overlay missing entry for data.cue")
+	}
+	if _, ok := overlay[fifoPath]; ok {
+		t.Errorf("FIFO should not have an overlay entry")
 	}
 }
