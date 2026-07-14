@@ -362,6 +362,13 @@ type fileID struct{ dev, ino uint64 }
 // observed in practice.
 const maxOverlayDepth = 20
 
+// maxFilterFileSize is the upper bound on file size the filter will read
+// into memory. Larger files (e.g. multi-GB blobs in the module tree) are
+// skipped: the module-wide walk makes encountering them realistic, and
+// loading them wholesale would risk exhausting memory. 32 MiB comfortably
+// exceeds any sops-encrypted CUE source or embedded data file.
+const maxFilterFileSize = 32 << 20
+
 // moduleRoot finds the module root by searching upward from the process's
 // current working directory for a directory containing cue.mod. CUE unifies
 // a directory's package with every ancestor up to the module root and loads
@@ -439,6 +446,17 @@ func buildOverlay(root string, filter func(path string, raw []byte) ([]byte, err
 			if filepath.Base(p) == ".git" {
 				return nil
 			}
+			// Skip CUE vendoring directories under cue.mod/. Since CUE
+			// 0.17, module dependencies are resolved via local-module.cue
+			// rewrites, not the legacy pkg/gen/usr vendoring trees. Walking
+			// them wastes time and risks hitting the large-file or depth
+			// limits on deeply nested dependency copies.
+			if filepath.Base(filepath.Dir(p)) == "cue.mod" {
+				switch filepath.Base(p) {
+				case "pkg", "gen", "usr":
+					return nil
+				}
+			}
 			entries, err := os.ReadDir(p)
 			if err != nil {
 				return fmt.Errorf("read dir %s: %w", p, err)
@@ -449,6 +467,15 @@ func buildOverlay(root string, filter func(path string, raw []byte) ([]byte, err
 					return err
 				}
 			}
+			return nil
+		}
+		// Skip files too large to filter safely. The module-wide walk
+		// can encounter multi-GB blobs; loading them into memory risks
+		// exhaustion. CUE source files and sops-encrypted data are far
+		// below the limit.
+		if info.Size() > maxFilterFileSize {
+			fmt.Fprintf(os.Stderr, "cuegen: skipping %s (%d bytes, exceeds %d byte filter limit)\n",
+				p, info.Size(), maxFilterFileSize)
 			return nil
 		}
 		raw, err := os.ReadFile(p)

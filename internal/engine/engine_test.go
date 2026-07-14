@@ -457,3 +457,92 @@ func TestOverlaySkipsDanglingSymlink(t *testing.T) {
 		t.Errorf("overlay missing entry for data.cue (dangling symlink aborted the walk?)")
 	}
 }
+
+// TestOverlaySkipsLargeFile verifies files exceeding maxFilterFileSize are
+// not read into memory. The module-wide walk can encounter multi-GB blobs;
+// loading them wholesale would risk exhausting memory. A small file with
+// the same marker must still get its overlay entry, proving the large file
+// was skipped, not fatal.
+func TestOverlaySkipsLargeFile(t *testing.T) {
+	dir := t.TempDir()
+
+	// Small file the filter will transform.
+	if err := os.WriteFile(filepath.Join(dir, "small.cue"), []byte("MARKER"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Large file just over the limit. We don't write maxFilterFileSize bytes
+	// to disk; instead we truncate a sparse file so the stat reports the
+	// size without consuming disk or memory.
+	largePath := filepath.Join(dir, "blob.bin")
+	f, err := os.Create(largePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := f.Truncate(maxFilterFileSize + 1); err != nil {
+		t.Fatal(err)
+	}
+	f.Close()
+
+	filter := func(path string, raw []byte) ([]byte, error) {
+		if strings.Contains(path, "blob.bin") {
+			t.Error("filter called on oversized file")
+		}
+		return []byte(strings.ReplaceAll(string(raw), "MARKER", "decrypted")), nil
+	}
+
+	overlay, err := buildOverlay(dir, filter)
+	if err != nil {
+		t.Fatalf("buildOverlay: %v", err)
+	}
+	if _, ok := overlay[filepath.Join(dir, "small.cue")]; !ok {
+		t.Errorf("overlay missing entry for small.cue")
+	}
+	if _, ok := overlay[largePath]; ok {
+		t.Errorf("oversized file should not have an overlay entry")
+	}
+}
+
+// TestOverlaySkipsVendoringDirs verifies the cue.mod/pkg, cue.mod/gen, and
+// cue.mod/usr vendoring directories are skipped. Since CUE 0.17, dependencies
+// are resolved via local-module.cue rewrites, not the legacy vendoring trees.
+func TestOverlaySkipsVendoringDirs(t *testing.T) {
+	dir := t.TempDir()
+
+	// A normal CUE file the filter will transform.
+	writeFile(t, dir, "export.cue", "MARKER")
+
+	// Vendoring directories with filterable files that must NOT be reached.
+	for _, sub := range []string{"pkg", "gen", "usr"} {
+		writeFile(t, dir, filepath.Join("cue.mod", sub, "dep.cue"), "VENDOR_MARKER")
+	}
+
+	// A non-vendoring cue.mod subdirectory should still be walked.
+	writeFile(t, dir, filepath.Join("cue.mod", "module.cue"), "MODULE_MARKER")
+
+	filter := func(path string, raw []byte) ([]byte, error) {
+		return []byte(strings.ReplaceAll(string(raw), "MARKER", "done")), nil
+	}
+
+	overlay, err := buildOverlay(dir, filter)
+	if err != nil {
+		t.Fatalf("buildOverlay: %v", err)
+	}
+
+	// Normal file must be filtered.
+	if _, ok := overlay[filepath.Join(dir, "export.cue")]; !ok {
+		t.Errorf("overlay missing entry for export.cue")
+	}
+
+	// cue.mod/module.cue must be filtered (not a vendoring dir).
+	if _, ok := overlay[filepath.Join(dir, "cue.mod", "module.cue")]; !ok {
+		t.Errorf("overlay missing entry for cue.mod/module.cue (should not skip non-vendoring cue.mod subdirs)")
+	}
+
+	// Vendoring dirs must NOT have entries.
+	for _, sub := range []string{"pkg", "gen", "usr"} {
+		if _, ok := overlay[filepath.Join(dir, "cue.mod", sub, "dep.cue")]; ok {
+			t.Errorf("overlay should not contain cue.mod/%s/dep.cue (vendoring dir skipped)", sub)
+		}
+	}
+}
