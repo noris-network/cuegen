@@ -597,6 +597,80 @@ func TestOverlaySkipsNonRegularFiles(t *testing.T) {
 	}
 }
 
+// TestOverlaySkipsSymlinkEscapingModuleRoot pins the containment guard: a
+// symlink inside the module pointing at a directory OUTSIDE the module root
+// must not be descended into. Without the guard the module-wide overlay walk
+// would traverse the host filesystem (FS traversal / local DoS), reading
+// arbitrary files it has no business touching - especially relevant in the
+// ArgoCD CMP context where the rendered tree originates from a repo. Such a
+// link is useless to CUE, so skipping it loses nothing.
+func TestOverlaySkipsSymlinkEscapingModuleRoot(t *testing.T) {
+	dir := t.TempDir()
+
+	// A normal file inside the module the filter will transform.
+	if err := os.WriteFile(filepath.Join(dir, "data.cue"), []byte("MARKER"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// A directory OUTSIDE the module root with a file that must never be read.
+	outside := t.TempDir()
+	if err := os.WriteFile(filepath.Join(outside, "external.cue"),
+		[]byte("EXTERNAL_SECRET"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, filepath.Join(dir, "escape")); err != nil {
+		t.Skipf("symlink not supported: %v", err)
+	}
+
+	filter := func(path string, raw []byte) ([]byte, error) {
+		if strings.Contains(path, "external.cue") {
+			t.Errorf("filter called on file outside module root: %s", path)
+		}
+		return []byte(strings.ReplaceAll(string(raw), "MARKER", "decrypted")), nil
+	}
+
+	overlay, err := buildOverlay(dir, filter)
+	if err != nil {
+		t.Fatalf("buildOverlay: %v", err)
+	}
+	if _, ok := overlay[filepath.Join(dir, "data.cue")]; !ok {
+		t.Errorf("overlay missing entry for data.cue")
+	}
+	if _, ok := overlay[filepath.Join(dir, "escape", "external.cue")]; ok {
+		t.Errorf("overlay must not contain the escaped file")
+	}
+}
+
+// TestOverlayFollowsInTreeSymlink complements the escape test: a symlink
+// whose target stays WITHIN the module root is legitimate (module trees use
+// symlinks heavily) and must still produce an overlay entry for the aliased
+// path.
+func TestOverlayFollowsInTreeSymlink(t *testing.T) {
+	dir := t.TempDir()
+	realDir := filepath.Join(dir, "real")
+	if err := os.MkdirAll(realDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(realDir, "data.cue"), []byte("MARKER"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(realDir, filepath.Join(dir, "alias")); err != nil {
+		t.Skipf("symlink not supported: %v", err)
+	}
+
+	filter := func(path string, raw []byte) ([]byte, error) {
+		return []byte(strings.ReplaceAll(string(raw), "MARKER", "decrypted")), nil
+	}
+
+	overlay, err := buildOverlay(dir, filter)
+	if err != nil {
+		t.Fatalf("buildOverlay: %v", err)
+	}
+	if _, ok := overlay[filepath.Join(dir, "alias", "data.cue")]; !ok {
+		t.Errorf("overlay missing entry for in-tree symlink alias data.cue")
+	}
+}
+
 // TestOverlayVisitCap verifies the maxOverlayVisits cap prevents runaway
 // walks from symlink DAG explosions. Without a global visited set (removed
 // so each alias path gets its own overlay entry), a nested symlink DAG can

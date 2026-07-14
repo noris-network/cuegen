@@ -436,6 +436,37 @@ func moduleRoot() (string, error) {
 	}
 }
 
+// withinRoot reports whether p resolves to a path inside root. Regular
+// (non-symlink) entries are assumed in-tree: the walk only descends into
+// directories already known to be within root, so a non-symlink child is
+// necessarily contained. A symlink is resolved and checked against root,
+// rejecting targets that escape it - this is what keeps the overlay walk
+// from traversing the host filesystem via an escaping symlink.
+//
+// A dangling or unreadable symlink is reported via the error so the caller
+// can skip it the same way it skips a failed os.Stat.
+func withinRoot(root, p string) (bool, error) {
+	li, err := os.Lstat(p)
+	if err != nil {
+		return false, err
+	}
+	if li.Mode()&os.ModeSymlink == 0 {
+		return true, nil
+	}
+	real, err := filepath.EvalSymlinks(p)
+	if err != nil {
+		return false, err
+	}
+	rel, err := filepath.Rel(root, real)
+	if err != nil {
+		return false, err
+	}
+	if rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return false, nil
+	}
+	return true, nil
+}
+
 // buildOverlay walks root (absolute path) for files, runs
 // each through filter, and returns the absolute-path -> load.Source map for
 // load.Config.Overlay, containing only files the filter actually changed.
@@ -451,6 +482,14 @@ func moduleRoot() (string, error) {
 // metadata.
 func buildOverlay(root string, filter FileFilter) (map[string]load.Source, error) {
 	absRoot, err := filepath.Abs(root)
+	if err != nil {
+		return nil, err
+	}
+	// Normalize away any symlinks in the root path itself so the containment
+	// check compares apples to apples: without this, a root reached through a
+	// symlinked ancestor (/tmp -> /private/tmp on macOS) would make every
+	// resolved child path look like it escaped, breaking the walk.
+	absRoot, err = filepath.EvalSymlinks(absRoot)
 	if err != nil {
 		return nil, err
 	}
@@ -472,6 +511,21 @@ func buildOverlay(root string, filter FileFilter) (map[string]load.Source, error
 			// module tree (including cue.mod/pkg vendoring), where stray
 			// symlinks are far more likely; CUE would ignore the dead
 			// link anyway.
+			return nil
+		}
+		// Confine the walk to the module tree. A symlink whose target
+		// escapes absRoot would lead the walk into arbitrary host paths
+		// (filesystem traversal / local DoS via the module-wide overlay
+		// walk, especially relevant in the ArgoCD CMP context where the
+		// rendered tree comes from a repo). Such a link is useless to CUE
+		// - it never loads anything outside the module - so skip it
+		// outright instead of reading the wider filesystem.
+		inside, lerr := withinRoot(absRoot, p)
+		if lerr != nil {
+			return nil
+		}
+		if !inside {
+			log.Printf("skipping %s: symlink target outside module root", p)
 			return nil
 		}
 		st, ok := info.Sys().(*syscall.Stat_t)
