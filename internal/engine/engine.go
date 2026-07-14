@@ -410,7 +410,12 @@ func buildOverlay(root string, filter func(path string, raw []byte) ([]byte, err
 		}
 		info, err := os.Stat(p) // follows symlinks
 		if err != nil {
-			return fmt.Errorf("stat %s: %w", p, err)
+			// A dangling symlink or unreadable entry: skip it rather than
+			// aborting the entire render. The walk now covers the full
+			// module tree (including cue.mod/pkg vendoring), where stray
+			// symlinks are far more likely; CUE would ignore the dead
+			// link anyway.
+			return nil
 		}
 		st, ok := info.Sys().(*syscall.Stat_t)
 		if !ok {

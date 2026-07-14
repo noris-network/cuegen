@@ -429,3 +429,31 @@ func TestOverlaySymlinkAliasGetsEntry(t *testing.T) {
 			"global visited set skipped the alias", bPath)
 	}
 }
+
+// TestOverlaySkipsDanglingSymlink verifies a dangling symlink does not
+// abort the overlay walk. Since the walk now covers the full module tree
+// (including cue.mod/pkg vendoring), stray symlinks are common; CUE would
+// ignore a dead link, so the walk must too.
+func TestOverlaySkipsDanglingSymlink(t *testing.T) {
+	dir := t.TempDir()
+	// A real file the filter will transform.
+	if err := os.WriteFile(filepath.Join(dir, "data.cue"), []byte("MARKER"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// A dangling symlink pointing nowhere.
+	if err := os.Symlink(filepath.Join(dir, "nonexistent"), filepath.Join(dir, "dangling")); err != nil {
+		t.Skipf("symlink not supported: %v", err)
+	}
+
+	filter := func(path string, raw []byte) ([]byte, error) {
+		return []byte(strings.ReplaceAll(string(raw), "MARKER", "decrypted")), nil
+	}
+
+	overlay, err := buildOverlay(dir, filter)
+	if err != nil {
+		t.Fatalf("buildOverlay should skip dangling symlink, got error: %v", err)
+	}
+	if _, ok := overlay[filepath.Join(dir, "data.cue")]; !ok {
+		t.Errorf("overlay missing entry for data.cue (dangling symlink aborted the walk?)")
+	}
+}
