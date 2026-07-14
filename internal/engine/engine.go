@@ -255,11 +255,14 @@ func writeYaml(nodes []*yaml.RNode, out io.Writer, wide bool) error {
 		opts.SeqIndent = yaml.WideSequenceStyle
 	}
 	encoder := yaml.NewEncoderWithOptions(out, opts)
-	defer encoder.Close()
 	for i, node := range nodes {
 		if err := encoder.Encode(node.Document()); err != nil {
+			encoder.Close()
 			return fmt.Errorf("encode yaml for node %d: %w", i, err)
 		}
+	}
+	if err := encoder.Close(); err != nil {
+		return fmt.Errorf("flush yaml output: %w", err)
 	}
 	return nil
 }
