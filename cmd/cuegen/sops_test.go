@@ -2,104 +2,54 @@ package main
 
 import (
 	"bytes"
-	"crypto/aes"
-	"crypto/cipher"
-	"crypto/rand"
-	"encoding/base64"
-	"encoding/json"
-	"fmt"
-	"io"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"filippo.io/age"
-	"filippo.io/age/armor"
-
-	"sigs.k8s.io/yaml"
 )
 
 // --- test helpers ----------------------------------------------------------
 
-// genAge returns a fresh age identity and a random 32-byte data encryption key.
-func genAge(t *testing.T) (*age.X25519Identity, []byte) {
+// genAgeIdentity returns a fresh age identity and its public recipient string.
+func genAgeIdentity(t *testing.T) (priv, pub string) {
 	t.Helper()
 	ident, err := age.GenerateX25519Identity()
 	if err != nil {
 		t.Fatalf("generate age identity: %v", err)
 	}
-	dek := make([]byte, 32)
-	if _, err := rand.Read(dek); err != nil {
-		t.Fatalf("rand dek: %v", err)
-	}
-	return ident, dek
+	return ident.String(), ident.Recipient().String()
 }
 
-// armorDEK encrypts dek to ident's recipient and returns the armored blob
-// exactly as sops stores it in sops.age[].enc.
-func armorDEK(t *testing.T, ident *age.X25519Identity, dek []byte) string {
+// sopsEncrypt encrypts plaintext using the sops CLI with the given age
+// recipient and input/output type. The SOPS_AGE_KEY env must NOT be set
+// during encryption (only the public recipient is needed). The filenameOverride
+// sets the file extension sops uses to infer the output format. Returns the
+// encrypted bytes.
+func sopsEncrypt(t *testing.T, plaintext []byte, recipient, inputType, outputType, filenameOverride string) []byte {
 	t.Helper()
-	buf := &bytes.Buffer{}
-	aw := armor.NewWriter(buf)
-	enc, err := age.Encrypt(aw, ident.Recipient())
+	cmd := exec.Command("sops", "encrypt", "--age", recipient,
+		"--input-type", inputType, "--output-type", outputType,
+		"--filename-override", filenameOverride)
+	cmd.Stdin = bytes.NewReader(plaintext)
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	out, err := cmd.Output()
 	if err != nil {
-		t.Fatalf("age encrypt: %v", err)
+		t.Fatalf("sops encrypt: %v\n%s", err, stderr.String())
 	}
-	if _, err := enc.Write(dek); err != nil {
-		t.Fatalf("write dek: %v", err)
-	}
-	if err := enc.Close(); err != nil {
-		t.Fatalf("close age writer: %v", err)
-	}
-	if err := aw.Close(); err != nil {
-		t.Fatalf("close armor writer: %v", err)
-	}
-	return buf.String()
+	return out
 }
 
-// sopsMeta builds the sops metadata block carrying the age-encrypted DEK.
-func sopsMeta(t *testing.T, ident *age.X25519Identity, dek []byte) map[string]any {
-	return map[string]any{
-		"age": []map[string]any{
-			{"recipient": ident.Recipient().String(), "enc": armorDEK(t, ident, dek)},
-		},
-		"unencrypted_suffix": "_unencrypted",
-		"version":            "3.9.0",
-	}
-}
-
-// encLeaf produces a sops ENC[AES256_GCM,...] string: the inverse of
-// decryptValue. It mirrors the wire format so round-trips exercise the real
-// AES-GCM + AAD path without depending on the external sops binary.
-func encLeaf(t *testing.T, dek []byte, plain, aad, typ string) string {
-	t.Helper()
-	iv := make([]byte, 12)
-	if _, err := rand.Read(iv); err != nil {
-		t.Fatalf("rand iv: %v", err)
-	}
-	block, err := aes.NewCipher(dek)
-	if err != nil {
-		t.Fatalf("cipher: %v", err)
-	}
-	gcm, err := cipher.NewGCM(block)
-	if err != nil {
-		t.Fatalf("gcm: %v", err)
-	}
-	ct := gcm.Seal(nil, iv, []byte(plain), []byte(aad))
-	data, tag := ct[:len(ct)-gcm.Overhead()], ct[len(ct)-gcm.Overhead():]
-	return fmt.Sprintf("ENC[AES256_GCM,data:%s,iv:%s,tag:%s,type:%s]",
-		base64.StdEncoding.EncodeToString(data),
-		base64.StdEncoding.EncodeToString(iv),
-		base64.StdEncoding.EncodeToString(tag),
-		typ,
-	)
-}
-
-// withAgeKey runs fn with SOPS_AGE_KEY=key and SOPS_AGE_KEY_FILE cleared, so
-// loadAgeIdentities sees only the test identity.
+// withAgeKey runs fn with SOPS_AGE_KEY=key, so the sops package loads only
+// the test identity for decryption. SOPS_AGE_KEY_FILE is unset to avoid
+// the sops package trying to open an empty path.
 func withAgeKey(t *testing.T, key string, fn func()) {
 	t.Helper()
 	t.Setenv("SOPS_AGE_KEY", key)
-	t.Setenv("SOPS_AGE_KEY_FILE", "")
+	os.Unsetenv("SOPS_AGE_KEY_FILE")
 	fn()
 }
 
@@ -131,223 +81,68 @@ func TestLooksLikeSops(t *testing.T) {
 	}
 }
 
-// --- typedValue ------------------------------------------------------------
+// --- sopsFilter end-to-end: binary store (CUE source) ----------------------
 
-func TestTypedValue(t *testing.T) {
-	tests := []struct {
-		plain, typ string
-		want       any
-	}{
-		{"42", "int", int64(42)},
-		{"-7", "int", int64(-7)},
-		{"3.14", "float", 3.14},
-		{"True", "bool", true},
-		{"true", "bool", true},
-		{"False", "bool", false},
-		{"hello", "str", "hello"},
-		{"not-a-number", "int", "not-a-number"}, // parse fail -> verbatim string
-		{"oops", "unknown", "oops"},             // unknown tag -> string
-		{"", "str", ""},
-	}
-	for _, tc := range tests {
-		got := typedValue(tc.plain, tc.typ)
-		switch w := tc.want.(type) {
-		case int64:
-			if g, ok := got.(int64); !ok || g != w {
-				t.Errorf("typedValue(%q,%q)=%#v want %v", tc.plain, tc.typ, got, w)
-			}
-		case float64:
-			if g, ok := got.(float64); !ok || g != w {
-				t.Errorf("typedValue(%q,%q)=%#v want %v", tc.plain, tc.typ, got, w)
-			}
-		case bool:
-			if g, ok := got.(bool); !ok || g != w {
-				t.Errorf("typedValue(%q,%q)=%#v want %v", tc.plain, tc.typ, got, w)
-			}
-		case string:
-			if g, ok := got.(string); !ok || g != w {
-				t.Errorf("typedValue(%q,%q)=%#v want %q", tc.plain, tc.typ, got, w)
-			}
-		}
-	}
-}
+// TestSopsFilterBinaryStore encrypts a CUE source snippet as a sops binary
+// store and verifies sopsFilter decrypts it back to the original plaintext.
+func TestSopsFilterBinaryStore(t *testing.T) {
+	priv, pub := genAgeIdentity(t)
+	plaintext := []byte("package main\n\nvalue: \"hello\"\n")
+	encrypted := sopsEncrypt(t, plaintext, pub, "binary", "binary", "secret.enc.cue")
 
-// --- decryptValue round-trip ----------------------------------------------
-
-func TestDecryptValueRoundTrip(t *testing.T) {
-	dek := bytes.Repeat([]byte{0xAB}, 32)
-	tests := []struct{ plain, typ, aad string }{
-		{"supersecret", "str", "tokens:TOKEN:"},
-		{"12345", "int", "config:port:"},
-		{"1.5", "float", "limits:cpu:"},
-		{"True", "bool", "flags:enabled:"},
-		{"", "str", "empty:"},
-	}
-	for _, tc := range tests {
-		t.Run(tc.typ, func(t *testing.T) {
-			enc := encLeaf(t, dek, tc.plain, tc.aad, tc.typ)
-			plain, typ, err := decryptValue(enc, dek, tc.aad)
-			if err != nil {
-				t.Fatalf("decrypt: %v", err)
-			}
-			if plain != tc.plain || typ != tc.typ {
-				t.Errorf("got (%q,%q) want (%q,%q)", plain, typ, tc.plain, tc.typ)
-			}
-		})
-	}
-}
-
-// Wrong AAD must fail AEAD authentication - pins the AAD contract.
-func TestDecryptValueWrongAADFails(t *testing.T) {
-	dek := bytes.Repeat([]byte{0xCD}, 32)
-	enc := encLeaf(t, dek, "secret", "a:b:", "str")
-	if _, _, err := decryptValue(enc, dek, "a:c:"); err == nil {
-		t.Fatal("decrypt with wrong AAD unexpectedly succeeded")
-	}
-}
-
-// --- walkAndDecrypt: AAD construction (walkSlice compatibility) ----------
-
-// TestWalkAndDecryptAAD pins the tree-path AAD convention: a leaf's AAD is the
-// colon-joined map keys from root to leaf, terminated with ':'. List indices
-// do NOT contribute (matching upstream sops walkSlice). Encrypted leaves are
-// planted at known paths; decryption succeeding proves the walker rebuilds
-// the same AAD sops used at encryption time.
-func TestWalkAndDecryptAAD(t *testing.T) {
-	dek := bytes.Repeat([]byte{0x11}, 32)
-	tree := map[string]any{
-		"tokens": map[string]any{
-			"TOKEN": encLeaf(t, dek, "tok", "tokens:TOKEN:", "str"),
-		},
-		"list": []any{
-			encLeaf(t, dek, "elem0", "list:", "str"), // index excluded -> AAD "list:"
-		},
-		"nested": map[string]any{
-			"deep": map[string]any{
-				"value": encLeaf(t, dek, "d", "nested:deep:value:", "str"),
-			},
-		},
-	}
-	out, err := walkAndDecrypt(tree, dek, nil)
-	if err != nil {
-		t.Fatalf("walk: %v", err)
-	}
-	m := out.(map[string]any)
-	if m["tokens"].(map[string]any)["TOKEN"] != "tok" {
-		t.Errorf("tokens.TOKEN = %#v", m["tokens"])
-	}
-	if m["nested"].(map[string]any)["deep"].(map[string]any)["value"] != "d" {
-		t.Errorf("nested.deep.value = %#v", m["nested"])
-	}
-	if list := m["list"].([]any); len(list) != 1 || list[0] != "elem0" {
-		t.Errorf("list = %#v want [elem0]", list)
-	}
-}
-
-// --- decryptSops end-to-end: native JSON ----------------------------------
-
-func TestDecryptSopsNativeJSON(t *testing.T) {
-	ident, dek := genAge(t)
-	envelope := map[string]any{
-		"tokens": map[string]any{
-			"USER": encLeaf(t, dek, "svc-foo", "tokens:USER:", "str"),
-			"PASS": encLeaf(t, dek, "s3cret", "tokens:PASS:", "str"),
-		},
-		"sops": sopsMeta(t, ident, dek),
-	}
-	raw, err := json.MarshalIndent(envelope, "", "  ")
-	if err != nil {
-		t.Fatalf("marshal: %v", err)
-	}
-	withAgeKey(t, ident.String(), func() {
-		out, err := decryptSops(raw)
+	withAgeKey(t, priv, func() {
+		out, err := sopsFilter("secret.enc.cue", encrypted)
 		if err != nil {
-			t.Fatalf("decryptSops: %v", err)
+			t.Fatalf("sopsFilter: %v", err)
 		}
-		var got map[string]any
-		if err := json.Unmarshal(out, &got); err != nil {
-			t.Fatalf("unmarshal output: %v\n%s", err, out)
-		}
-		if got["sops"] != nil {
-			t.Errorf("sops block not stripped: %v", got["sops"])
-		}
-		toks := got["tokens"].(map[string]any)
-		if toks["USER"] != "svc-foo" || toks["PASS"] != "s3cret" {
-			t.Errorf("tokens = %#v want USER=svc-foo PASS=s3cret", toks)
+		if !bytes.Equal(out, plaintext) {
+			t.Errorf("output = %q, want %q", out, plaintext)
 		}
 	})
 }
 
-// --- decryptSops end-to-end: native YAML ----------------------------------
+// --- sopsFilter end-to-end: native YAML ------------------------------------
 
-// TestDecryptSopsNativeYAML verifies a native YAML sops file is decrypted
-// and the output is valid YAML (not JSON). The ENC[...] leaves are decrypted
-// with the same tree-path AAD as the JSON path, and the "sops" block is
-// stripped.
-func TestDecryptSopsNativeYAML(t *testing.T) {
-	ident, dek := genAge(t)
-	// Build the YAML envelope manually so the AAD paths match what sops
-	// would produce: "tokens:USER:" and "tokens:PASS:".
-	userEnc := encLeaf(t, dek, "svc-foo", "tokens:USER:", "str")
-	passEnc := encLeaf(t, dek, "s3cret", "tokens:PASS:", "str")
-	enc := armorDEK(t, ident, dek)
-	yamlInput := fmt.Sprintf(`tokens:
-    USER: %s
-    PASS: %s
-sops:
-    age:
-        - recipient: %s
-          enc: |
-            %s
-    unencrypted_suffix: _
-    version: 3.10.1
-`, userEnc, passEnc, ident.Recipient().String(),
-		strings.ReplaceAll(strings.TrimSpace(enc), "\n", "\n            "))
+// TestSopsFilterNativeYAML encrypts a YAML file with sops and verifies
+// sopsFilter decrypts it, stripping the sops metadata block.
+func TestSopsFilterNativeYAML(t *testing.T) {
+	priv, pub := genAgeIdentity(t)
+	plaintext := []byte("tokens:\n    USER: svc-foo\n    PASS: s3cret\n")
+	encrypted := sopsEncrypt(t, plaintext, pub, "yaml", "yaml", "config.enc.yaml")
 
-	withAgeKey(t, ident.String(), func() {
-		out, err := decryptSops([]byte(yamlInput))
+	withAgeKey(t, priv, func() {
+		out, err := sopsFilter("config.enc.yaml", encrypted)
 		if err != nil {
-			t.Fatalf("decryptSops: %v", err)
+			t.Fatalf("sopsFilter: %v", err)
 		}
-		// Output must be YAML, not JSON: YAML uses indentation, not braces.
-		if bytes.Contains(out, []byte("{")) {
-			t.Errorf("output should be YAML, got JSON:\n%s", out)
+		if bytes.Contains(out, []byte("sops:")) {
+			t.Errorf("sops block not stripped:\n%s", out)
 		}
-		// Parse the YAML output and verify decrypted values.
-		var got map[string]any
-		if err := yaml.Unmarshal(out, &got); err != nil {
-			t.Fatalf("unmarshal YAML output: %v\n%s", err, out)
-		}
-		if got["sops"] != nil {
-			t.Errorf("sops block not stripped: %v", got["sops"])
-		}
-		toks := got["tokens"].(map[string]any)
-		if toks["USER"] != "svc-foo" || toks["PASS"] != "s3cret" {
-			t.Errorf("tokens = %#v want USER=svc-foo PASS=s3cret", toks)
+		if !bytes.Contains(out, []byte("svc-foo")) || !bytes.Contains(out, []byte("s3cret")) {
+			t.Errorf("decrypted values missing:\n%s", out)
 		}
 	})
 }
 
-// --- decryptSops end-to-end: binary store ---------------------------------
+// --- sopsFilter end-to-end: native JSON ------------------------------------
 
-func TestDecryptSopsBinaryStore(t *testing.T) {
-	ident, dek := genAge(t)
-	plaintext := "apiVersion: v1\nkind: Secret\n"
-	envelope := map[string]any{
-		"data": encLeaf(t, dek, plaintext, "data:", "str"),
-		"sops": sopsMeta(t, ident, dek),
-	}
-	raw, err := json.MarshalIndent(envelope, "", "  ")
-	if err != nil {
-		t.Fatalf("marshal: %v", err)
-	}
-	withAgeKey(t, ident.String(), func() {
-		out, err := decryptSops(raw)
+// TestSopsFilterNativeJSON encrypts a JSON file with sops and verifies
+// sopsFilter decrypts it, stripping the sops metadata block.
+func TestSopsFilterNativeJSON(t *testing.T) {
+	priv, pub := genAgeIdentity(t)
+	plaintext := []byte(`{"tokens":{"USER":"svc-foo","PASS":"s3cret"}}`)
+	encrypted := sopsEncrypt(t, plaintext, pub, "json", "json", "config.enc.json")
+
+	withAgeKey(t, priv, func() {
+		out, err := sopsFilter("config.enc.json", encrypted)
 		if err != nil {
-			t.Fatalf("decryptSops: %v", err)
+			t.Fatalf("sopsFilter: %v", err)
 		}
-		if string(out) != plaintext {
-			t.Errorf("binary store output = %q want %q", out, plaintext)
+		if bytes.Contains(out, []byte(`"sops"`)) {
+			t.Errorf("sops block not stripped:\n%s", out)
+		}
+		if !bytes.Contains(out, []byte("svc-foo")) || !bytes.Contains(out, []byte("s3cret")) {
+			t.Errorf("decrypted values missing:\n%s", out)
 		}
 	})
 }
@@ -357,16 +152,13 @@ func TestDecryptSopsBinaryStore(t *testing.T) {
 // A genuine age-encrypted sops file with the wrong key configured must fail
 // hard - no ciphertext ever reaches the CUE compiler or a deployment.
 func TestSopsFilterHardFailureOnWrongKey(t *testing.T) {
-	ident, dek := genAge(t)
-	envelope := map[string]any{
-		"tokens": map[string]any{"TOKEN": encLeaf(t, dek, "secret", "tokens:TOKEN:", "str")},
-		"sops":   sopsMeta(t, ident, dek),
-	}
-	raw, _ := json.MarshalIndent(envelope, "", "  ")
+	_, pub := genAgeIdentity(t)
+	plaintext := []byte("tokens:\n    TOKEN: secret\n")
+	encrypted := sopsEncrypt(t, plaintext, pub, "yaml", "yaml", "secrets.enc.yaml")
 
-	other, _ := age.GenerateX25519Identity() // a DIFFERENT identity configured
-	withAgeKey(t, other.String(), func() {
-		_, err := sopsFilter("secrets.enc.json", raw)
+	otherPriv, _ := genAgeIdentity(t) // a DIFFERENT identity configured
+	withAgeKey(t, otherPriv, func() {
+		_, err := sopsFilter("secrets.enc.yaml", encrypted)
 		if err == nil {
 			t.Fatal("expected hard failure for real sops file with wrong key, got nil")
 		}
@@ -388,60 +180,57 @@ func TestSopsFilterSoftPassthroughOnFalsePositive(t *testing.T) {
 	}
 }
 
-// A non-age envelope (sops metadata but no age recipients) passes through.
-func TestSopsFilterSoftPassthroughNonAge(t *testing.T) {
-	raw, _ := json.MarshalIndent(map[string]any{
-		"data": "ENC[AES256_GCM,data:xx,iv:yy,tag:zz,type:str]",
-		"sops": map[string]any{
-			"kms":                []any{map[string]any{"arn": "arn:aws:kms:..."}},
-			"unencrypted_suffix": "_unencrypted",
-		},
-	}, "", "  ")
-	out, err := sopsFilter("kms-secret.json", raw)
-	if err != nil {
-		t.Fatalf("expected soft passthrough for non-age envelope, got: %v", err)
-	}
-	if !bytes.Equal(out, raw) {
-		t.Error("passthrough altered bytes")
-	}
-}
+// --- sopsFormat ------------------------------------------------------------
 
-// --- loadAgeIdentities sources --------------------------------------------
-
-func TestLoadAgeIdentitiesFromEnv(t *testing.T) {
-	ident, _ := genAge(t)
-	withAgeKey(t, ident.String(), func() {
-		ids, err := loadAgeIdentities()
-		if err != nil {
-			t.Fatalf("load: %v", err)
+func TestSopsFormat(t *testing.T) {
+	tests := []struct {
+		path string
+		want string
+	}{
+		{"secret.enc.cue", "binary"},
+		{"config.enc.yaml", "yaml"},
+		{"config.enc.yml", "yaml"},
+		{"config.enc.json", "json"},
+		{"data.txt", "binary"},
+		{"plain", "binary"},
+	}
+	for _, tc := range tests {
+		if got := sopsFormat(tc.path); got != tc.want {
+			t.Errorf("sopsFormat(%q) = %q, want %q", tc.path, got, tc.want)
 		}
-		if len(ids) != 1 {
-			t.Fatalf("got %d identities, want 1", len(ids))
-		}
-	})
-}
-
-func TestLoadAgeIdentitiesNoneConfigured(t *testing.T) {
-	t.Setenv("SOPS_AGE_KEY", "")
-	t.Setenv("SOPS_AGE_KEY_FILE", "")
-	// Point XDG/HOME at a temp dir so the config fallback finds nothing.
-	tmp := t.TempDir()
-	t.Setenv("XDG_CONFIG_HOME", tmp)
-	t.Setenv("HOME", tmp)
-	ids, err := loadAgeIdentities()
-	if err != nil {
-		t.Fatalf("load: %v", err)
-	}
-	if len(ids) != 0 {
-		t.Fatalf("got %d identities, want 0", len(ids))
 	}
 }
 
-// --- parseFile -------------------------------------------------------------
+// --- sopsFilter: real example files ----------------------------------------
 
-func TestParseFileMissing(t *testing.T) {
-	err := parseFile("/nonexistent/keys.txt", func(io.Reader) error { return nil })
-	if err == nil {
-		t.Fatal("expected error for missing file")
+// TestSopsFilterExampleFiles verifies the example sops files under examples/sops
+// decrypt correctly with the demo age key.
+func TestSopsFilterExampleFiles(t *testing.T) {
+	demoKey := "AGE-SECRET-KEY-14QUHLE5A6UNSKNYXLF5ZA26P3NCFX8P68JQ066T7VJ6JW5G8FHWQN4HAUQ"
+
+	files := []struct {
+		name   string
+		path   string
+		expect string // substring that must appear in the decrypted output
+	}{
+		{"secret.enc.cue", "../../examples/sops/secret.enc.cue", "password"},
+		{"config.enc.yaml", "../../examples/sops/config.enc.yaml", "db.example.com"},
+	}
+	for _, f := range files {
+		t.Run(f.name, func(t *testing.T) {
+			raw, err := os.ReadFile(filepath.FromSlash(f.path))
+			if err != nil {
+				t.Skipf("example file not found: %v", err)
+			}
+			withAgeKey(t, demoKey, func() {
+				out, err := sopsFilter(f.path, raw)
+				if err != nil {
+					t.Fatalf("sopsFilter %s: %v", f.name, err)
+				}
+				if !bytes.Contains(out, []byte(f.expect)) {
+					t.Errorf("decrypted output missing %q:\n%s", f.expect, out)
+				}
+			})
+		})
 	}
 }
