@@ -372,6 +372,15 @@ const maxOverlayDepth = 20
 // exceeds any sops-encrypted CUE source or embedded data file.
 const maxFilterFileSize = 32 << 20
 
+// maxOverlayVisits caps the total number of files and directories the
+// overlay walk visits. Without a global visited set (removed so each
+// symlink alias path gets its own overlay entry), a maliciously nested
+// symlink DAG can produce exponentially many paths while each individual
+// chain stays within the depth budget. This cap turns that into a clear
+// error instead of an unbounded walk. 1 M is far above any legitimate
+// module tree. It is a var (not const) so tests can lower it.
+var maxOverlayVisits = 1_000_000
+
 // moduleRoot finds the module root by searching upward from the process's
 // current working directory for a directory containing cue.mod. CUE unifies
 // a directory's package with every ancestor up to the module root and loads
@@ -413,8 +422,13 @@ func buildOverlay(root string, filter func(path string, raw []byte) ([]byte, err
 		return nil, err
 	}
 	overlay := map[string]load.Source{}
+	visits := 0
 	var walk func(p string, depth int, ancestors []fileID) error
 	walk = func(p string, depth int, ancestors []fileID) error {
+		visits++
+		if visits > maxOverlayVisits {
+			return fmt.Errorf("overlay walk exceeded %d visited paths at %s (possible symlink DAG explosion)", maxOverlayVisits, p)
+		}
 		if depth > maxOverlayDepth {
 			return fmt.Errorf("overlay walk exceeded depth %d at %s (possible symlink loop)", maxOverlayDepth, p)
 		}

@@ -3,6 +3,7 @@ package engine
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -593,5 +594,42 @@ func TestOverlaySkipsNonRegularFiles(t *testing.T) {
 	}
 	if _, ok := overlay[fifoPath]; ok {
 		t.Errorf("FIFO should not have an overlay entry")
+	}
+}
+
+// TestOverlayVisitCap verifies the maxOverlayVisits cap prevents runaway
+// walks from symlink DAG explosions. Without a global visited set (removed
+// so each alias path gets its own overlay entry), a nested symlink DAG can
+// produce exponentially many paths while each individual chain stays within
+// the depth budget. The cap turns that into a clear error.
+//
+// The real cap (1 M) is too large for a test; instead we temporarily lower
+// it and create enough directories to trigger the guard.
+func TestOverlayVisitCap(t *testing.T) {
+	dir := t.TempDir()
+
+	origMax := maxOverlayVisits
+	maxOverlayVisits = 10
+	t.Cleanup(func() { maxOverlayVisits = origMax })
+
+	// Create 20 directories, each with a file - enough to exceed 10 visits.
+	for i := 0; i < 20; i++ {
+		sub := filepath.Join(dir, fmt.Sprintf("d%d", i))
+		if err := os.MkdirAll(sub, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(sub, "f.cue"), []byte("x"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	filter := func(path string, raw []byte) ([]byte, error) { return raw, nil }
+
+	_, err := buildOverlay(dir, filter)
+	if err == nil {
+		t.Fatal("expected error from visit cap, got nil")
+	}
+	if !strings.Contains(err.Error(), "exceeded") {
+		t.Errorf("error should mention cap exceeded, got: %v", err)
 	}
 }
