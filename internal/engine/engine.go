@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"path/filepath"
 	"slices"
@@ -41,6 +42,13 @@ const (
 	FormatJSON
 )
 
+// FileFilter transforms the raw bytes of a file before the CUE loader sees
+// them. It receives the absolute file path (for context-aware decisions,
+// e.g. detecting `.enc.cue`) and the raw bytes; it returns the bytes CUE
+// should compile. Returning the input unchanged signals "no change" so the
+// file is skipped from the overlay.
+type FileFilter func(path string, raw []byte) ([]byte, error)
+
 // Options configures a render.
 type Options struct {
 	// Format selects the output encoding; the zero value is FormatYAML.
@@ -53,14 +61,12 @@ type Options struct {
 	WideSeqIndent bool
 
 	// FileFilter transforms the raw bytes of every file below the module
-	// root before the CUE loader sees them. It receives the absolute file
-	// path (for context-aware decisions, e.g. detecting `.enc.cue`) and the
-	// raw bytes; it returns the bytes CUE should compile. nil means
-	// identity. Plug in transparent decryption (SOPS, age, etc.) here so
-	// CUE never knows a file was encrypted and loads the cleartext contents
-	// normally. With CUE v0.17+ the resulting overlay also covers @embed
-	// targets, so a single hook catches both CUE source and embedded data.
-	FileFilter func(path string, raw []byte) ([]byte, error)
+	// root before the CUE loader sees them. nil means identity. Plug in
+	// transparent decryption (SOPS, age, etc.) here so CUE never knows a
+	// file was encrypted and loads the cleartext contents normally. With
+	// CUE v0.17+ the resulting overlay also covers @embed targets, so a
+	// single hook catches both CUE source and embedded data.
+	FileFilter FileFilter
 }
 
 // Exec renders the cuegen module at path, resolved relative to the
@@ -416,7 +422,7 @@ func moduleRoot() (string, error) {
 // path, and every path must resolve to the filtered content.
 // cuegen is Unix-only (see the command doc), so stat always carries inode
 // metadata.
-func buildOverlay(root string, filter func(path string, raw []byte) ([]byte, error)) (map[string]load.Source, error) {
+func buildOverlay(root string, filter FileFilter) (map[string]load.Source, error) {
 	absRoot, err := filepath.Abs(root)
 	if err != nil {
 		return nil, err
@@ -500,7 +506,7 @@ func buildOverlay(root string, filter func(path string, raw []byte) ([]byte, err
 		// exhaustion. CUE source files and sops-encrypted data are far
 		// below the limit.
 		if info.Size() > maxFilterFileSize {
-			fmt.Fprintf(os.Stderr, "cuegen: skipping %s (%d bytes, exceeds %d byte filter limit)\n",
+			log.Printf("skipping %s (%d bytes, exceeds %d byte filter limit)",
 				p, info.Size(), maxFilterFileSize)
 			return nil
 		}

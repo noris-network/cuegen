@@ -673,20 +673,13 @@ func TestWideFlag(t *testing.T) {
 
 	// Compact: list dashes are at the same indentation as the parent key.
 	// Wide: list dashes are indented 2 spaces deeper than the parent key.
-	for _, line := range strings.Split(compact, "\n") {
-		if strings.HasPrefix(line, "  - name: app") {
-			goto compactOK
-		}
+	lines := func(s string) []string { return strings.Split(s, "\n") }
+	if !slices.ContainsFunc(lines(compact), func(l string) bool { return strings.HasPrefix(l, "  - name: app") }) {
+		t.Fatalf("compact output should have flush-left list items:\n%s", compact)
 	}
-	t.Fatalf("compact output should have flush-left list items:\n%s", compact)
-compactOK:
-	for _, line := range strings.Split(wide, "\n") {
-		if strings.HasPrefix(line, "    - name: app") {
-			goto wideOK
-		}
+	if !slices.ContainsFunc(lines(wide), func(l string) bool { return strings.HasPrefix(l, "    - name: app") }) {
+		t.Fatalf("wide output should have indented list items:\n%s", wide)
 	}
-	t.Fatalf("wide output should have indented list items:\n%s", wide)
-wideOK:
 
 	// -wide must produce different output than the default.
 	if compact == wide {

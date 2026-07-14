@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"os"
+	"log"
 	"strings"
 
 	"github.com/getsops/sops/v3"
@@ -37,7 +37,7 @@ func sopsFilter(path string, raw []byte) ([]byte, error) {
 		// heuristic but isn't a genuine sops file - pass it through.
 		if errors.Is(err, sops.MetadataNotFound) ||
 			strings.Contains(err.Error(), "unmarshalling") {
-			fmt.Fprintf(os.Stderr, "cuegen: sops decrypt %s: %v; passing through\n", path, err)
+			log.Printf("sops decrypt %s: %v; passing through", path, err)
 			return raw, nil
 		}
 		return nil, fmt.Errorf("sops decrypt %s: %w", path, err)
