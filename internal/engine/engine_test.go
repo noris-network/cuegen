@@ -308,3 +308,75 @@ export: objects: configMap: {
 		t.Errorf("error = %q, want it to name the duplicate key", err)
 	}
 }
+
+// TestOverlayCoversModuleRoot pins the fix for a security-relevant bug: the
+// overlay walk must cover the entire module tree (rooted at cue.mod), not
+// just the render path argument. CUE unifies ancestor packages up to the
+// module root, so a file at the root level feeds into the build even when
+// rendering a subdirectory. If the filter only walked the subdirectory,
+// the root-level file would reach the CUE compiler unfiltered - in the
+// SOPS case that means ciphertext flowing silently into the render output.
+//
+// The test plants a marker-bearing file at the module root and a sub that
+// references it. A filter replaces the marker. Rendering ./sub must show
+// the replaced value, proving the filter ran on the root-level file.
+func TestOverlayCoversModuleRoot(t *testing.T) {
+	dir := t.TempDir()
+	writeModule(t, dir, "")
+	// Root-level file with a marker the filter will replace. Simulates an
+	// encrypted file whose cleartext only emerges after filtering.
+	writeFile(t, dir, "values.cue", `package control
+
+$secret: "MARKER_UNFILTERED"
+`)
+	// Root export references $secret so the marker would appear in output
+	// if the filter didn't run.
+	writeFile(t, dir, "export.cue", `package control
+
+export: objects: configMap: root: {
+	apiVersion: "v1"
+	kind:       "ConfigMap"
+	metadata: name: "root"
+	data: key: $secret
+}
+`)
+	// Subdirectory that also references $secret from the parent package.
+	writeFile(t, dir, "sub/export.cue", `package control
+
+export: objects: configMap: sub: {
+	apiVersion: "v1"
+	kind:       "ConfigMap"
+	metadata: name: "sub"
+	data: key: $secret
+}
+`)
+
+	// Filter replaces the marker wherever it appears.
+	filter := func(path string, raw []byte) ([]byte, error) {
+		return []byte(strings.ReplaceAll(string(raw), "MARKER_UNFILTERED", "decrypted")), nil
+	}
+
+	t.Chdir(dir)
+
+	// Rendering the subdirectory must filter the root-level values.cue.
+	var out bytes.Buffer
+	if err := Exec("./sub", &out, Options{FileFilter: filter}); err != nil {
+		t.Fatalf("Exec ./sub: %v", err)
+	}
+	got := out.String()
+	if strings.Contains(got, "MARKER_UNFILTERED") {
+		t.Errorf("output contains unfiltered marker; root-level file was not filtered:\n%s", got)
+	}
+	if !strings.Contains(got, "decrypted") {
+		t.Errorf("output missing decrypted value; filter did not run on root-level file:\n%s", got)
+	}
+
+	// Sanity: rendering "." must also filter (this worked before the fix).
+	out.Reset()
+	if err := Exec(".", &out, Options{FileFilter: filter}); err != nil {
+		t.Fatalf("Exec .: %v", err)
+	}
+	if strings.Contains(out.String(), "MARKER_UNFILTERED") {
+		t.Errorf("render . contains unfiltered marker:\n%s", out.String())
+	}
+}

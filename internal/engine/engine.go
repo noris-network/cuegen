@@ -87,10 +87,13 @@ func Exec(path string, out io.Writer, opts Options) error {
 	// filter it would always be empty, so the walk is skipped entirely.
 	var overlay map[string]load.Source
 	if opts.FileFilter != nil {
-		var err error
-		overlay, err = buildOverlay(path, opts.FileFilter)
+		root, err := moduleRoot()
 		if err != nil {
-			return fmt.Errorf("build overlay for %q: %w", path, err)
+			return fmt.Errorf("find module root: %w", err)
+		}
+		overlay, err = buildOverlay(root, opts.FileFilter)
+		if err != nil {
+			return fmt.Errorf("build overlay for %q: %w", root, err)
 		}
 	}
 
@@ -359,7 +362,29 @@ type fileID struct{ dev, ino uint64 }
 // observed in practice.
 const maxOverlayDepth = 20
 
-// buildOverlay walks root (relative to the CWD or absolute) for files, runs
+// moduleRoot finds the module root by searching upward from the process's
+// current working directory for a directory containing cue.mod. CUE unifies
+// a directory's package with every ancestor up to the module root and loads
+// @embed targets from anywhere in the module, so the overlay must cover
+// the entire module tree - not just the render path argument (e.g. ./prod).
+func moduleRoot() (string, error) {
+	dir, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+	for {
+		if info, err := os.Stat(filepath.Join(dir, "cue.mod")); err == nil && info.IsDir() {
+			return dir, nil
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return "", fmt.Errorf("no cue.mod found in %s or any ancestor", dir)
+		}
+		dir = parent
+	}
+}
+
+// buildOverlay walks root (absolute path) for files, runs
 // each through filter, and returns the absolute-path -> load.Source map for
 // load.Config.Overlay, containing only files the filter actually changed.
 //
