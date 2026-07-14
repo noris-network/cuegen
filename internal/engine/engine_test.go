@@ -633,3 +633,102 @@ func TestOverlayVisitCap(t *testing.T) {
 		t.Errorf("error should mention cap exceeded, got: %v", err)
 	}
 }
+
+// TestExecEmptyExport verifies writeJSON with an empty object set produces a
+// valid, empty JSON object rather than crashing or emitting malformed JSON.
+// This exercises the len(nodes)==0 edge case of writeJSON (output "{\n}\n").
+func TestExecEmptyExport(t *testing.T) {
+	dir := t.TempDir()
+	writeModule(t, dir, "")
+	writeFile(t, dir, "export.cue", `package control
+
+export: objects: {}
+`)
+
+	t.Chdir(dir)
+	var out bytes.Buffer
+	if err := Exec(".", &out, Options{Format: FormatJSON}); err != nil {
+		t.Fatalf("Exec: %v", err)
+	}
+	var obj map[string]any
+	if err := json.Unmarshal(out.Bytes(), &obj); err != nil {
+		t.Fatalf("invalid JSON: %v\n%s", err, out.String())
+	}
+	if len(obj) != 0 {
+		t.Errorf("want empty JSON object, got %d keys: %v", len(obj), obj)
+	}
+}
+
+// TestExecNilFilterDoesNotCrash verifies that Exec with a nil FileFilter
+// skips the overlay walk entirely and renders normally - buildOverlay must
+// not be called (or at least must not crash) with a nil filter.
+func TestExecNilFilterDoesNotCrash(t *testing.T) {
+	dir := t.TempDir()
+	writeModule(t, dir, "")
+	writeFile(t, dir, "export.cue", `package control
+
+export: objects: configMap: cm: {
+	apiVersion: "v1"
+	kind:       "ConfigMap"
+	metadata: name: "cm"
+	data: x: "1"
+}
+`)
+
+	t.Chdir(dir)
+	var out bytes.Buffer
+	if err := Exec(".", &out, Options{FileFilter: nil}); err != nil {
+		t.Fatalf("Exec with nil filter: %v", err)
+	}
+	if !strings.Contains(out.String(), "name: cm") {
+		t.Errorf("output missing the rendered object:\n%s", out.String())
+	}
+}
+
+// failingWriter is an io.Writer that accepts the first failAfter bytes, then
+// returns an error on every subsequent write. Used to provoke a flush/write
+// error from writeYaml's encoder.Close path.
+type failingWriter struct {
+	written   int
+	failAfter int
+}
+
+func (w *failingWriter) Write(p []byte) (int, error) {
+	n := len(p)
+	if w.written+n > w.failAfter {
+		n = w.failAfter - w.written
+		if n > 0 {
+			w.written += n
+		}
+		return n, fmt.Errorf("simulated I/O error")
+	}
+	w.written += n
+	return n, nil
+}
+
+// TestWriteYamlFlushError verifies that a write failure during YAML encoding
+// surfaces as an error from Exec rather than being silently swallowed by the
+// encoder. This covers the explicit encoder.Close error-check in writeYaml.
+func TestWriteYamlFlushError(t *testing.T) {
+	dir := t.TempDir()
+	writeModule(t, dir, "")
+	writeFile(t, dir, "export.cue", `package control
+
+export: objects: configMap: cm: {
+	apiVersion: "v1"
+	kind:       "ConfigMap"
+	metadata: name: "cm"
+	data: x: "1"
+}
+`)
+
+	t.Chdir(dir)
+	errW := &failingWriter{failAfter: 10}
+	err := Exec(".", errW, Options{})
+	if err == nil {
+		t.Fatal("expected error from failing writer, got nil")
+	}
+	if !strings.Contains(err.Error(), "yaml") {
+		t.Errorf("error should mention yaml encoding, got: %v", err)
+	}
+}

@@ -1,3 +1,12 @@
+// Package engine renders cuegen v2 modules into YAML/JSON streams.
+//
+// Exec loads a CUE module from the current working directory, resolves
+// the configured export path, validates all exported objects for
+// concreteness, and serializes the result as a "---"-separated YAML
+// stream (or JSON/KYAML). A FileFilter hook allows transparent
+// pre-processing of file contents before the CUE loader sees them,
+// enabling features like SOPS decryption without coupling the engine
+// to a specific encryption tool.
 package engine
 
 import (
@@ -41,6 +50,21 @@ const (
 	// FormatJSON emits a single JSON object keyed by "<kind>/<name>".
 	FormatJSON
 )
+
+// String returns the human-readable name of the format, used in error
+// messages and satisfying fmt.Stringer.
+func (f Format) String() string {
+	switch f {
+	case FormatYAML:
+		return "yaml"
+	case FormatKYAML:
+		return "kyaml"
+	case FormatJSON:
+		return "json"
+	default:
+		return fmt.Sprintf("format(%d)", f)
+	}
+}
 
 // FileFilter transforms the raw bytes of a file before the CUE loader sees
 // them. It receives the absolute file path (for context-aware decisions,
@@ -180,7 +204,7 @@ func Exec(path string, out io.Writer, opts Options) error {
 	case FormatYAML:
 		return writeYaml(nodes, out, opts.WideSeqIndent)
 	default:
-		return fmt.Errorf("unknown output format %d", opts.Format)
+		return fmt.Errorf("unknown output format %s", opts.Format)
 	}
 }
 
@@ -217,7 +241,10 @@ func writeJSON(nodes []*yaml.RNode, out io.Writer) error {
 		// Indent continuation lines by 2 spaces to align with the key.
 		indented := bytes.ReplaceAll(ind.Bytes(), []byte("\n"), []byte("\n  "))
 
-		kb, _ := json.Marshal(key)
+		kb, err := json.Marshal(key)
+		if err != nil {
+			return fmt.Errorf("marshal json key for node %d: %w", i, err)
+		}
 		buf.WriteString("  ")
 		buf.Write(kb)
 		buf.WriteString(": ")
@@ -482,9 +509,12 @@ func buildOverlay(root string, filter FileFilter) (map[string]load.Source, error
 			}
 			entries, err := os.ReadDir(p)
 			if err != nil {
-				// *fs.PathError already includes the path and operation;
-				// wrapping would duplicate them ("read dir /x: open /x: ...").
-				return err
+				// An unreadable directory (e.g. cue.mod/gen with 0o000) is
+				// skipped rather than aborting the entire render, mirroring the
+				// graceful os.Stat handling above: the module-wide walk can hit
+				// permission-restricted trees that CUE would ignore anyway.
+				log.Printf("skipping unreadable directory %s: %v", p, err)
+				return nil
 			}
 			ancestors = append(ancestors, id)
 			for _, e := range entries {

@@ -276,17 +276,14 @@ func isV2(apiVersion string) bool {
 // 0). The leading "v" is optional.
 func majorVersion(s string) (int, bool) {
 	s = strings.TrimPrefix(s, "v")
-	var d strings.Builder
-	for _, r := range s {
-		if r < '0' || r > '9' {
-			break
-		}
-		d.WriteRune(r)
+	end := strings.IndexFunc(s, func(r rune) bool { return r < '0' || r > '9' })
+	if end == -1 {
+		end = len(s)
 	}
-	if d.Len() == 0 {
+	if end == 0 {
 		return 0, false
 	}
-	n, err := strconv.Atoi(d.String())
+	n, err := strconv.Atoi(s[:end])
 	if err != nil {
 		return 0, false
 	}
@@ -365,6 +362,12 @@ func isValidSHA1(s string) bool {
 	return err == nil && len(b) == sha1.Size
 }
 
+// cmpPluginCheck implements the ArgoCD Config Management Plugin detection
+// probe. When invoked as `cuegen -is-cuegen-dir` it prints "true" to stdout
+// if cuegen.cue is present in the CWD, prints nothing otherwise, and in both
+// cases exits 0. The probe must produce no other output (no version banner,
+// no diagnostics) so ArgoCD's sidecar can decide ownership cleanly. Any other
+// invocation is a no-op and falls through to normal processing.
 func cmpPluginCheck() {
 	if len(os.Args) != 2 || os.Args[1] != "-is-cuegen-dir" {
 		return

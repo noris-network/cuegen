@@ -30,14 +30,16 @@ func TestMain(m *testing.M) {
 	}
 	bin.Close()
 	cuegenBin = bin.Name()
-	// Deferred so the binary is removed even if m.Run panics; the test
-	// wrapper passes m.Run's result to os.Exit when TestMain returns.
-	defer os.Remove(cuegenBin)
 	cmd := exec.Command("go", "build", "-o", cuegenBin, ".")
 	if out, err := cmd.CombinedOutput(); err != nil {
 		panic(fmt.Sprintf("go build: %v\n%s", err, out))
 	}
-	m.Run()
+	// os.Exit bypasses deferred calls, so clean up explicitly before
+	// propagating m.Run's exit code - without it, CI would not detect
+	// test failures (the discarded return value was always 0).
+	code := m.Run()
+	os.Remove(cuegenBin)
+	os.Exit(code)
 }
 
 // writeTestModule lays out a minimal v2 module in dir with two

@@ -44,11 +44,19 @@ func sopsEncrypt(t *testing.T, plaintext []byte, recipient, inputType, outputTyp
 }
 
 // withAgeKey runs fn with SOPS_AGE_KEY=key, so the sops package loads only
-// the test identity for decryption. SOPS_AGE_KEY_FILE is unset to avoid
-// the sops package trying to open an empty path.
+// the test identity for decryption. SOPS_AGE_KEY_FILE is unset to avoid the
+// sops package trying to open an empty path. t.Setenv cannot manage
+// SOPS_AGE_KEY_FILE here (sops opens the path even on an empty string), so
+// the prior value is saved and restored via t.Cleanup instead of leaking the
+// deletion to the rest of the test process.
 func withAgeKey(t *testing.T, key string, fn func()) {
 	t.Helper()
 	t.Setenv("SOPS_AGE_KEY", key)
+	if old, ok := os.LookupEnv("SOPS_AGE_KEY_FILE"); ok {
+		t.Cleanup(func() { os.Setenv("SOPS_AGE_KEY_FILE", old) })
+	} else {
+		t.Cleanup(func() { os.Unsetenv("SOPS_AGE_KEY_FILE") })
+	}
 	os.Unsetenv("SOPS_AGE_KEY_FILE")
 	fn()
 }
@@ -120,6 +128,28 @@ func TestSopsFilterNativeYAML(t *testing.T) {
 		}
 		if !bytes.Contains(out, []byte("svc-foo")) || !bytes.Contains(out, []byte("s3cret")) {
 			t.Errorf("decrypted values missing:\n%s", out)
+		}
+	})
+}
+
+// TestSopsFilterNativeYMLExtension mirrors TestSopsFilterNativeYAML but uses
+// the .yml extension, exercising the .yml branch of sopsFormat end-to-end
+// through sopsFilter (TestSopsFormat covers the mapping in isolation only).
+func TestSopsFilterNativeYMLExtension(t *testing.T) {
+	priv, pub := genAgeIdentity(t)
+	plaintext := []byte("tokens:\n    USER: svc-foo\n")
+	encrypted := sopsEncrypt(t, plaintext, pub, "yaml", "yaml", "config.enc.yml")
+
+	withAgeKey(t, priv, func() {
+		out, err := sopsFilter("config.enc.yml", encrypted)
+		if err != nil {
+			t.Fatalf("sopsFilter: %v", err)
+		}
+		if bytes.Contains(out, []byte("sops:")) {
+			t.Errorf("sops block not stripped:\n%s", out)
+		}
+		if !bytes.Contains(out, []byte("svc-foo")) {
+			t.Errorf("decrypted value missing:\n%s", out)
 		}
 	})
 }
