@@ -3,7 +3,7 @@ module github.com/noris-network/cuegen
 go 1.26
 
 require (
-	cuelang.org/go v0.17.0
+	cuelang.org/go v0.17.1
 	filippo.io/age v1.2.1
 	github.com/getsops/sops/v3 v3.10.2
 	sigs.k8s.io/kustomize/kyaml v0.21.1

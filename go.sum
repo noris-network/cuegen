@@ -26,8 +26,8 @@ cloud.google.com/go/trace v1.11.3 h1:c+I4YFjxRQjvAhRmSsmjpASUKq88chOX854ied0K/pE
 cloud.google.com/go/trace v1.11.3/go.mod h1:pt7zCYiDSQjC9Y2oqCsh9jF4GStB/hmjrYLsxRR27q8=
 cuelabs.dev/go/oci/ociregistry v0.0.0-20260601085548-328ff8e2c943 h1:XUtzi/yWlmuy8V6kkmVbbmirmUqcFe9Ce3gmEaHXf1Q=
 cuelabs.dev/go/oci/ociregistry v0.0.0-20260601085548-328ff8e2c943/go.mod h1:WjmQxb+W6nVNCgj8nXrF24lIz95AHwnSl36tpjDZSU8=
-cuelang.org/go v0.17.0 h1:PrijS5ofUD01yiG11w74I04laXKLaBiMhEYvdt8Gb/A=
-cuelang.org/go v0.17.0/go.mod h1:xlly/o1wSLvxOsi5vkQGieU0rLOt7TvUIizOFtnxHRU=
+cuelang.org/go v0.17.1 h1:liOkxZDqTHrzq0USJX+6bMYOZ5PSf+wzvQr15AHpDCQ=
+cuelang.org/go v0.17.1/go.mod h1:xlly/o1wSLvxOsi5vkQGieU0rLOt7TvUIizOFtnxHRU=
 dario.cat/mergo v1.0.1 h1:Ra4+bf83h2ztPIQYNP99R6m+Y7KfnARDfID+a+vLl4s=
 dario.cat/mergo v1.0.1/go.mod h1:uNxQE+84aUszobStD9th8a29P2fMDhsBdgRYvZOxGmk=
 filippo.io/age v1.2.1 h1:X0TZjehAZylOIj4DubWYU1vWQxv9bJpo+Uu2/LGhi1o=
