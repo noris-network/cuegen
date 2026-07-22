@@ -140,13 +140,13 @@ func Exec(path string, out io.Writer, opts Options) error {
 	}
 	inst := insts[0]
 	if err := inst.Err; err != nil {
-		return fmt.Errorf("load instance %q: %w", path, err)
+		return fmt.Errorf("load instance %q:\n%s", path, cueDetail(err))
 	}
 
 	ctx := cuecontext.New(cuecontext.WithInjection(embed.New()))
 	val := ctx.BuildInstance(inst)
 	if err := val.Err(); err != nil {
-		return fmt.Errorf("build instance %q: %w", path, err)
+		return fmt.Errorf("build instance %q:\n%s", path, cueDetail(err))
 	}
 
 	expPath, err := exportPath(val)
@@ -158,7 +158,7 @@ func Exec(path string, out io.Writer, opts Options) error {
 		return fmt.Errorf("export path %q not found", expPath)
 	}
 	if err := objs.Err(); err != nil {
-		return fmt.Errorf("lookup %s: %w", expPath, err)
+		return fmt.Errorf("lookup %s:\n%s", expPath, cueDetail(err))
 	}
 
 	values, err := flattenObjects(objs)
@@ -363,6 +363,26 @@ func requireConcrete(values []cue.Value) error {
 	cwd, _ := os.Getwd()
 	details := strings.TrimRight(cueerrors.Details(errs, &cueerrors.Config{Cwd: cwd}), "\n")
 	return fmt.Errorf("export contains non-concrete values, cannot render:\n%s", details)
+}
+
+// cueDetail renders a CUE error the way `cue eval`/`cue export` do: the full
+// multi-line diagnosis with every conflicting value and source position, paths
+// relativized to the CWD. err.Error() collapses this to a single headline plus
+// "(and N more errors)", discarding exactly the detail a CUE-averse author
+// needs to fix the problem (the bad value, the allowed values, the file:line).
+// Used for build/load/lookup failures where there is no wrapper context to add
+// the diagnosis themselves. Errors with no underlying CUE value (plain Go
+// errors passed through by the CUE API) fall back to err.Error().
+func cueDetail(err error) string {
+	if err == nil {
+		return ""
+	}
+	cwd, _ := os.Getwd()
+	details := strings.TrimSpace(cueerrors.Details(err, &cueerrors.Config{Cwd: cwd}))
+	if details == "" {
+		return err.Error()
+	}
+	return details
 }
 
 // requireComplete force-evaluates the entire export.objects struct for

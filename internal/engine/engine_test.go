@@ -324,6 +324,61 @@ export: objects: {
 	}
 }
 
+// TestExecBuildErrorFullDiagnosis pins the fix for a usability bug: a CUE
+// validation failure (here an enum/disjunction violation) was reported as a
+// single truncated headline ("4 errors in empty disjunction: (and 4 more
+// errors)") via err.Error(), discarding the conflicting values and source
+// positions that `cue eval` prints. cuegen now renders the full multi-line
+// diagnosis, so the bad value, the allowed values, and the file:line are all
+// visible - matching cue eval on the same configuration.
+func TestExecBuildErrorFullDiagnosis(t *testing.T) {
+	dir := t.TempDir()
+	writeModule(t, dir, "")
+	writeFile(t, dir, "values.cue", `package control
+
+$ctx: {
+	environment: "dev" | "prod" | "qsu" | "test"
+	environment: "prodx"
+}
+`)
+	writeFile(t, dir, "export.cue", `package control
+
+export: objects: configMap: cm: {
+	apiVersion: "v1"
+	kind:       "ConfigMap"
+	metadata: name: "cm"
+	data: env: $ctx.environment
+}
+`)
+
+	t.Chdir(dir)
+	var out bytes.Buffer
+	err := Exec(".", &out, Options{})
+	if err == nil {
+		t.Fatal("expected build error for invalid enum value, got nil")
+	}
+	msg := err.Error()
+	// The full diagnosis must name the bad value, every allowed value (as
+	// conflict partners), and a source position - not the truncated headline.
+	if strings.Contains(msg, "(and 4 more errors)") {
+		t.Errorf("error is still truncated to a headline:\n%s", msg)
+	}
+	for _, want := range []string{
+		`conflicting values "dev" and "prodx"`,
+		`conflicting values "prod" and "prodx"`,
+		`conflicting values "qsu" and "prodx"`,
+		`conflicting values "test" and "prodx"`,
+		"values.cue:", // source position
+	} {
+		if !strings.Contains(msg, want) {
+			t.Errorf("error should contain %q, got:\n%s", want, msg)
+		}
+	}
+	if out.Len() != 0 {
+		t.Errorf("no output expected on error, got %q", out.String())
+	}
+}
+
 // TestExecSubdirUnifiesWithParent pins the CUE semantics engine.Exec relies
 // on: loading a subdirectory unifies its package with the same-named
 // package in every ancestor directory up to the module root. dir declares

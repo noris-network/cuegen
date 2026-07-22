@@ -21,6 +21,12 @@ Non-concrete values are rejected before encoding: the error lists the full
 CUE path and source position of every offending field, so a broken module
 can be fixed in a single round.
 
+CUE validation failures (enums, types, required fields) are reported with the
+full multi-line diagnosis `cue eval` produces - the conflicting values and
+source positions, not a truncated `(and N more errors)` headline - so a
+CUE-averse author can see the bad value, the allowed values, and the file:line
+without reaching for `cue` directly.
+
 Modules whose `cuegen.cue` exists but carries an older or missing
 `cuegen.apiVersion` (e.g. `v1beta1`, `v1alpha4`) are delegated to the
 `cuegen_v0.16.8` binary via `execve` - same PID, same stdin/stdout/stderr,
@@ -456,6 +462,7 @@ Tests the engine directly (in-process):
 | `TestExecMissingExportPath`       | Error on a nonexistent export path, no partial output                                                                             |
 | `TestExecNonConcreteExport`       | Non-concrete fields → error listing every CUE path with source position before encoding; defaulted fields pass; no partial output |
 | `TestExecDropsIncompleteDynamicKey` | Non-concrete dynamic key (metadata.name from an unset optional value) → hard error matching `cue export`, no silent drop; with the value set both objects render |
+| `TestExecBuildErrorFullDiagnosis`   | CUE validation failure (enum/disjunction) → full multi-line diagnosis with conflicting values and source positions, not a truncated `(and N more errors)` headline |
 | `TestExecSubdirUnifiesWithParent` | Loading a subdirectory unifies its package with the CWD's (a value hole only the subdirectory fills)                              |
 | `TestExecJSONKeyScheme`           | JSON key is always `<kind>/<name>`, even with a namespace set                                                                     |
 | `TestExecJSONDuplicateKindName`   | Same kind/name (even across two namespaces) → hard duplicate-key error                                                            |
