@@ -29,7 +29,7 @@ jobs:
       - name: Run Goreleaser
         uses: goreleaser/goreleaser-action@v7
         with:
-          version: latest
+          version: v2
           args: release --config=.goreleaser.yaml --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
