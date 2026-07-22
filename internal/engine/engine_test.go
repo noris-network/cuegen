@@ -212,6 +212,118 @@ export: objects: {
 	}
 }
 
+// TestExecDropsIncompleteDynamicKey pins the fix for a silent-drop bug: an
+// object whose dynamic key (here metadata.name derived from an unset
+// optional value via an opaque $val) is non-concrete is never yielded by
+// Fields(), so flattenObjects drops it without a peep - no error, exit 0.
+// Before the fix cuegen rendered the concrete sibling (plain-cm) and silently
+// omitted the AWX-like object, hiding a problem `cue export` reports loudly.
+// Now requireComplete force-evaluates the whole export.objects struct, so the
+// incomplete dynamic key becomes a hard, located error - matching cue export.
+//
+// State B (prefix unset): Exec errors, naming the dynamic-key failure and a
+// source position; no partial output. State A (prefix: "") renders both.
+func TestExecDropsIncompleteDynamicKey(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		setPrefix bool
+		wantErr   bool
+	}{
+		{"state_b_prefix_unset", false, true},
+		{"state_a_prefix_set", true, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			writeModule(t, dir, "")
+			prefixLine := "// prefix: \"\"   // unset -> incomplete"
+			if tc.setPrefix {
+				prefixLine = "prefix: \"\""
+			}
+			writeFile(t, dir, "export.cue", `package control
+
+// $val is the opaque injection point (like libmcs' $val: _). prefix is an
+// OPTIONAL value the author forgot to set in state B.
+$val: {
+	`+prefixLine+`
+	awx_operator: prefix: "awx-operator-"
+}
+
+// fullPrefix depends on $val.prefix. Unset prefix -> incomplete (NOT a CUE
+// error by itself; that is the basis of *-defaults and overlays).
+#fullPrefix: $val.prefix
+
+#raw: {
+	awx: {
+		apiVersion: "awx.ansible.com/v1beta1"
+		kind:       "AWX"
+		metadata: name: #fullPrefix + "awx-instance"
+		spec: {}
+	}
+	cm: {
+		apiVersion: "v1"
+		kind:       "ConfigMap"
+		metadata: name: "plain-cm"
+		data: x: "1"
+	}
+}
+
+// Group by kind, then key each kind's struct by metadata.name - the same
+// dynamic-key shape libmcs' export.cue uses. An incomplete metadata.name
+// makes the dynamic key non-concrete.
+export: objects: {
+	for kind, objs in #groupByKind {
+		"\(kind)": {
+			for _, obj in objs {
+				"\(obj.metadata.name)": obj
+			}
+		}
+	}
+}
+#groupByKind: {
+	for _, obj in #raw {
+		let k = obj.kind
+		"\(k)": {
+			"\(obj.metadata.name)": obj
+		}
+	}
+}
+`)
+
+			t.Chdir(dir)
+			var out bytes.Buffer
+			err := Exec(".", &out, Options{})
+			if tc.wantErr {
+				if err == nil {
+					t.Fatal("expected error for incomplete dynamic key, got nil")
+				}
+				msg := err.Error()
+				for _, want := range []string{
+					"key value of dynamic field must be concrete",
+					"export.cue:", // source position
+				} {
+					if !strings.Contains(msg, want) {
+						t.Errorf("error should contain %q, got:\n%s", want, msg)
+					}
+				}
+				if out.Len() != 0 {
+					t.Errorf("no output expected on error, got %q", out.String())
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("Exec: %v", err)
+			}
+			got := out.String()
+			if !strings.Contains(got, "kind: AWX") {
+				t.Errorf("state A output missing the AWX object (silent drop?)\n%s", got)
+			}
+			if !strings.Contains(got, "name: plain-cm") {
+				t.Errorf("state A output missing the ConfigMap\n%s", got)
+			}
+		})
+	}
+}
+
 // TestExecSubdirUnifiesWithParent pins the CUE semantics engine.Exec relies
 // on: loading a subdirectory unifies its package with the same-named
 // package in every ancestor directory up to the module root. dir declares

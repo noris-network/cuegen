@@ -170,6 +170,21 @@ func Exec(path string, out io.Writer, opts Options) error {
 		return err
 	}
 
+	// Force-evaluate the whole export.objects struct - not just the
+	// materialized leaves that requireConcrete checked. A field whose
+	// dynamic key is non-concrete (typically metadata.name derived from an
+	// unset optional value) is never yielded by Fields(), so flattenObjects
+	// never sees it and the object would vanish from the output silently -
+	// no error, exit 0. Validating the full struct with Concrete(true)
+	// forces every dynamic key to resolve, surfacing the same diagnostic
+	// `cue export -e export.objects` produces ("key value of dynamic field
+	// must be concrete"). Since requireConcrete already cleared every
+	// materialized object, any error here is a dropped object (incomplete
+	// dynamic key) - turning a silent drop into a loud, located failure.
+	if err := requireComplete(objs); err != nil {
+		return err
+	}
+
 	// Convert each CUE value to a kyaml RNode directly. CUE encodes to
 	// YAML bytes, yaml.Parse decodes a single document - no --- buffer
 	// concatenation or regex-based splitting. Encoding all documents
@@ -348,6 +363,26 @@ func requireConcrete(values []cue.Value) error {
 	cwd, _ := os.Getwd()
 	details := strings.TrimRight(cueerrors.Details(errs, &cueerrors.Config{Cwd: cwd}), "\n")
 	return fmt.Errorf("export contains non-concrete values, cannot render:\n%s", details)
+}
+
+// requireComplete force-evaluates the entire export.objects struct for
+// concreteness, complementing requireConcrete's per-leaf check. It catches
+// the case requireConcrete cannot: an object whose dynamic key (e.g.
+// metadata.name derived from an unset optional value) is non-concrete.
+// Such an object is never yielded by Fields(), so flattenObjects drops it
+// silently. Validating the whole struct forces every dynamic key to resolve,
+// surfacing the same diagnostic `cue export -e export.objects` produces
+// ("key value of dynamic field must be concrete"). Called only after
+// requireConcrete has cleared every materialized object, so any error here is
+// a dropped object. Mirrors requireConcrete's Details formatting so both
+// failure modes read identically.
+func requireComplete(objs cue.Value) error {
+	if err := objs.Validate(cue.Concrete(true)); err != nil {
+		cwd, _ := os.Getwd()
+		details := strings.TrimRight(cueerrors.Details(err, &cueerrors.Config{Cwd: cwd}), "\n")
+		return fmt.Errorf("export contains non-concrete values, cannot render:\n%s", details)
+	}
+	return nil
 }
 
 // flattenObjects mirrors the `cue cmd exp` comprehension

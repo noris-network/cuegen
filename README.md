@@ -261,6 +261,28 @@ Fields carrying a CUE default (`*"info" | "debug"`) are concrete for
 export purposes and are not reported. Nothing is written to stdout on
 error.
 
+### Incomplete dynamic keys (silent-drop guard)
+
+A non-concrete *leaf* is only half the story. An object whose **dynamic key**
+is non-concrete — typically `metadata.name` derived from an unset optional
+value injected through an opaque/open struct (`$val: _`) — is never yielded by
+iteration, so it would vanish from the output without an error, exit 0. `cue
+export -e export.objects` reports the same state loudly; cuegen now does too.
+
+After the per-leaf check, the entire `export.objects` struct is force-evaluated
+with `Concrete(true)`. This resolves every dynamic key and surfaces the same
+diagnostic `cue export` produces, instead of dropping the object silently:
+
+```
+cuegen: export contains non-concrete values, cannot render:
+export.objects.AWX.<dynamic>: key value of dynamic field must be concrete, found _|_(...):
+    ./export.cue:...
+```
+
+So an object that "disappears" from the rendered manifest is now a hard,
+located failure — fixing the pain point where a forgotten optional value
+silently dropped a Custom Resource from the output.
+
 ## SOPS / age
 
 The transparent SOPS decryption (age recipients only) loads the age identity
@@ -433,6 +455,7 @@ Tests the engine directly (in-process):
 | `TestExecCustomExportPath`        | Custom export path via `cuegen.spec.export`                                                                                       |
 | `TestExecMissingExportPath`       | Error on a nonexistent export path, no partial output                                                                             |
 | `TestExecNonConcreteExport`       | Non-concrete fields → error listing every CUE path with source position before encoding; defaulted fields pass; no partial output |
+| `TestExecDropsIncompleteDynamicKey` | Non-concrete dynamic key (metadata.name from an unset optional value) → hard error matching `cue export`, no silent drop; with the value set both objects render |
 | `TestExecSubdirUnifiesWithParent` | Loading a subdirectory unifies its package with the CWD's (a value hole only the subdirectory fills)                              |
 | `TestExecJSONKeyScheme`           | JSON key is always `<kind>/<name>`, even with a namespace set                                                                     |
 | `TestExecJSONDuplicateKindName`   | Same kind/name (even across two namespaces) → hard duplicate-key error                                                            |
