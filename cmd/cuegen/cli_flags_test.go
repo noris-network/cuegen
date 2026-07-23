@@ -264,6 +264,38 @@ func TestCmpSha1Kyaml(t *testing.T) {
 	}
 }
 
+// TestHashStabilityAcrossPatchReleases pins the -sha1 output of
+// examples/minimal to fixed values, in every format. This is the contract
+// documented in the README: the hash is guaranteed stable across patch
+// releases only. A failure here means either an accidental output change
+// (a real regression - fix it) or a deliberate one (a legitimate reason to
+// touch canonical formatting) - the latter requires at least a minor
+// version bump, together with a README/CHANGELOG note and updated hashes
+// here.
+func TestHashStabilityAcrossPatchReleases(t *testing.T) {
+	dir := "../../examples/minimal"
+	tests := []struct {
+		name string
+		args []string
+		want string
+	}{
+		{"yaml", []string{"-sha1", "."}, "cb656e55d0ac14fe2ec1aeac882313ccc7481ca6"},
+		{"kyaml", []string{"-sha1", "-kyaml", "."}, "9bb93f73ff9b336fda4ddc2516f46961cfb2d87b"},
+		{"json", []string{"-sha1", "-json", "."}, "816bf30cb5570cdf605e6ee2544013ad38280f23"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			stdout, stderr, exit := runCuegen(t, dir, tt.args...)
+			if exit != 0 {
+				t.Fatalf("exit = %d, stderr = %q", exit, stderr)
+			}
+			if got := strings.TrimSpace(stdout); got != tt.want {
+				t.Errorf("hash = %q, want %q (pinned - see test doc comment before updating)", got, tt.want)
+			}
+		})
+	}
+}
+
 // TestIsCuegenDirSuppressesBanner verifies the ArgoCD detection probe
 // produces no version banner.
 func TestIsCuegenDirSuppressesBanner(t *testing.T) {

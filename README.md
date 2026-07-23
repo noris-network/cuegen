@@ -240,6 +240,17 @@ lowercase.
 Both flags combine with `-kyaml` - the hash then refers to the KYAML
 output.
 
+### Stability guarantee
+
+For unchanged CUE input, the hash is guaranteed stable across patch releases
+of cuegen only. A CI pipeline or cache that pins a hash today can rely on it
+still matching after a patch upgrade, but a minor or major version bump may
+change canonical formatting (field order, scalar quoting, etc.), a CUE or
+kyaml dependency bump, or other output-affecting change - and therefore the
+hash - and would call that out explicitly in the release notes.
+`TestHashStabilityAcrossPatchReleases` in `cmd/cuegen/cli_flags_test.go`
+pins the hash of `examples/minimal` as a regression guard for this contract.
+
 ## Concreteness check before encoding
 
 Before any YAML encoding starts, every exported object is validated
@@ -449,6 +460,7 @@ since `main()` uses `os.Exit`):
 | `TestCmpSha1Mismatch`                    | `-cmp-sha1` with a valid but wrong hash → exit 100, no output                                                                        |
 | `TestCmpSha1InvalidHash`                 | `-cmp-sha1` with an invalid hash (`deadbeef`, `wrong`, empty) → exit 1; missing value → `missing value`                              |
 | `TestCmpSha1Kyaml`                       | `-cmp-sha1` with `-kyaml`: match → 0, mismatch → 100                                                                                 |
+| `TestHashStabilityAcrossPatchReleases`   | Pins `-sha1` of `examples/minimal` (YAML/KYAML/JSON) to fixed hashes - regression guard for the patch-release stability guarantee |
 | `TestCmpSha1Json`                        | `-cmp-sha1` with `-json`: match → 0, mismatch → 100                                                                                  |
 | `TestJsonFlag`                           | `-json` produces a valid JSON object with `<kind>/<name>` keys, correct count, consistent hash                                       |
 | `TestMutuallyExclusiveFlags`             | `-sha1`+`-cmp-sha1` (both orders) and `-kyaml`+`-json` → exit 1, "mutually exclusive" on stderr                                      |
