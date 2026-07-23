@@ -270,8 +270,8 @@ error.
 ### Incomplete dynamic keys (silent-drop guard)
 
 A non-concrete *leaf* is only half the story. An object whose **dynamic key**
-is non-concrete — typically `metadata.name` derived from an unset optional
-value injected through an opaque/open struct (`$val: _`) — is never yielded by
+is non-concrete - typically `metadata.name` derived from an unset optional
+value injected through an opaque/open struct (`$val: _`) - is never yielded by
 iteration, so it would vanish from the output without an error, exit 0. `cue
 export -e export.objects` reports the same state loudly; cuegen now does too.
 
@@ -286,8 +286,20 @@ export.objects.AWX.<dynamic>: key value of dynamic field must be concrete, found
 ```
 
 So an object that "disappears" from the rendered manifest is now a hard,
-located failure — fixing the pain point where a forgotten optional value
+located failure - fixing the pain point where a forgotten optional value
 silently dropped a Custom Resource from the output.
+
+### Empty export (zero objects)
+
+An `export.objects` that exists but resolves to zero objects is also a hard
+error, not a zero-document stream with exit 0. A silently empty stream is
+indistinguishable from "nothing to render" for a caller like ArgoCD, which
+would prune the entire Application - the same failure mode as the dropped
+dynamic key above, one level up:
+
+```
+cuegen: export export.objects contains no objects, refusing to render an empty stream
+```
 
 ## SOPS / age
 
@@ -462,6 +474,7 @@ Tests the engine directly (in-process):
 | `TestExecMissingExportPath`       | Error on a nonexistent export path, no partial output                                                                             |
 | `TestExecNonConcreteExport`       | Non-concrete fields → error listing every CUE path with source position before encoding; defaulted fields pass; no partial output |
 | `TestExecDropsIncompleteDynamicKey` | Non-concrete dynamic key (metadata.name from an unset optional value) → hard error matching `cue export`, no silent drop; with the value set both objects render |
+| `TestExecEmptyExport`              | `export.objects` resolving to zero objects → hard error, no output, in every format (YAML/KYAML/JSON) |
 | `TestExecBuildErrorFullDiagnosis`   | CUE validation failure (enum/disjunction) → full multi-line diagnosis with conflicting values and source positions, not a truncated `(and N more errors)` headline |
 | `TestExecSubdirUnifiesWithParent` | Loading a subdirectory unifies its package with the CWD's (a value hole only the subdirectory fills)                              |
 | `TestExecJSONKeyScheme`           | JSON key is always `<kind>/<name>`, even with a namespace set                                                                     |

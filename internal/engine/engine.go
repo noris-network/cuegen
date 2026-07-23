@@ -165,6 +165,9 @@ func Exec(path string, out io.Writer, opts Options) error {
 	if err != nil {
 		return fmt.Errorf("collect objects from %s: %w", expPath, err)
 	}
+	if len(values) == 0 {
+		return fmt.Errorf("export %s contains no objects, refusing to render an empty stream", expPath)
+	}
 
 	if err := requireConcrete(values); err != nil {
 		return err

@@ -877,28 +877,35 @@ func TestOverlayVisitCap(t *testing.T) {
 	}
 }
 
-// TestExecEmptyExport verifies writeJSON with an empty object set produces a
-// valid, empty JSON object rather than crashing or emitting malformed JSON.
-// This exercises the len(nodes)==0 edge case of writeJSON (output "{\n}\n").
+// TestExecEmptyExport errors when the export path exists but contains no
+// objects, in every output format. A silent zero-document stream with exit 0
+// is indistinguishable from "nothing to render" for a caller like ArgoCD,
+// which would prune the entire Application - the same failure mode as the
+// incomplete-dynamic-key silent drop (TestExecDropsIncompleteDynamicKey),
+// one level up.
 func TestExecEmptyExport(t *testing.T) {
-	dir := t.TempDir()
-	writeModule(t, dir, "")
-	writeFile(t, dir, "export.cue", `package control
+	for _, format := range []Format{FormatYAML, FormatKYAML, FormatJSON} {
+		t.Run(format.String(), func(t *testing.T) {
+			dir := t.TempDir()
+			writeModule(t, dir, "")
+			writeFile(t, dir, "export.cue", `package control
 
 export: objects: {}
 `)
 
-	t.Chdir(dir)
-	var out bytes.Buffer
-	if err := Exec(".", &out, Options{Format: FormatJSON}); err != nil {
-		t.Fatalf("Exec: %v", err)
-	}
-	var obj map[string]any
-	if err := json.Unmarshal(out.Bytes(), &obj); err != nil {
-		t.Fatalf("invalid JSON: %v\n%s", err, out.String())
-	}
-	if len(obj) != 0 {
-		t.Errorf("want empty JSON object, got %d keys: %v", len(obj), obj)
+			t.Chdir(dir)
+			var out bytes.Buffer
+			err := Exec(".", &out, Options{Format: format})
+			if err == nil {
+				t.Fatal("expected error for empty export, got nil")
+			}
+			if !strings.Contains(err.Error(), "no objects") {
+				t.Errorf("error = %q, want it to mention no objects", err)
+			}
+			if out.Len() != 0 {
+				t.Errorf("no output expected on error, got %q", out.String())
+			}
+		})
 	}
 }
 
