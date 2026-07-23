@@ -235,10 +235,13 @@ func Exec(path string, out io.Writer, opts Options) error {
 // writeJSON marshals the filtered nodes into a single indented JSON object.
 // Each key is "<kind>/<metadata.name>" - deliberately without the
 // namespace, which has no value for cuegen's use case. Two objects sharing
-// kind and name are therefore a hard duplicate-key error. Insertion order
-// from the filter pipeline is preserved - the output is built manually
-// rather than via a map, so json.MarshalIndent's alphabetical key sort
-// cannot silently override the pipeline's sort order.
+// kind and name are therefore a hard duplicate-key error, even if the same
+// module renders fine as YAML/KYAML (where namespace does disambiguate) -
+// the error message says so, since -json is a debugging aid (piping into
+// fx/jq) rather than a format every module is expected to support.
+// Insertion order from the filter pipeline is preserved - the output is
+// built manually rather than via a map, so json.MarshalIndent's alphabetical
+// key sort cannot silently override the pipeline's sort order.
 func writeJSON(nodes []*yaml.RNode, out io.Writer) error {
 	seen := make(map[string]bool, len(nodes))
 	var buf bytes.Buffer
@@ -251,7 +254,7 @@ func writeJSON(nodes []*yaml.RNode, out io.Writer) error {
 		}
 		key := meta.Kind + "/" + meta.Name
 		if seen[key] {
-			return fmt.Errorf("duplicate object key %q at node %d", key, i)
+			return fmt.Errorf("duplicate object key %q at node %d: -json keys objects by \"<kind>/<name>\" without namespace, so two objects sharing kind and name (even across different namespaces) collide - this module still renders fine without -json; -json is a debugging aid (e.g. for fx/jq), not required output", key, i)
 		}
 		seen[key] = true
 

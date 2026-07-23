@@ -415,8 +415,12 @@ func (sortByKindName) Filter(nodes []*yaml.RNode) ([]*yaml.RNode, error) {
   `MarshalJSON()`. The key is `"<kind>/<name>"` - deliberately without the
   namespace, which has no value for cuegen's use case. Two objects sharing
   kind and name (even in different namespaces) are therefore a hard
-  duplicate-key error. The canonical field ordering from `FormatFilter` is
-  preserved, since `MarshalJSON` carries over the node tree's field order.
+  duplicate-key error, even though the same module renders fine as
+  YAML/KYAML (where the namespace does disambiguate). `-json` is a
+  debugging aid - piping into `fx`/`jq` - not a format every module is
+  expected to support, and the error message says so. The canonical field
+  ordering from `FormatFilter` is preserved, since `MarshalJSON` carries
+  over the node tree's field order.
 
 ### Path resolution
 
@@ -506,7 +510,7 @@ Tests the engine directly (in-process):
 | `TestExecBuildErrorFullDiagnosis`   | CUE validation failure (enum/disjunction) → full multi-line diagnosis with conflicting values and source positions, not a truncated `(and N more errors)` headline |
 | `TestExecSubdirUnifiesWithParent` | Loading a subdirectory unifies its package with the CWD's (a value hole only the subdirectory fills)                              |
 | `TestExecJSONKeyScheme`           | JSON key is always `<kind>/<name>`, even with a namespace set                                                                     |
-| `TestExecJSONDuplicateKindName`   | Same kind/name (even across two namespaces) → hard duplicate-key error                                                            |
+| `TestExecJSONDuplicateKindName`   | Same kind/name (even across two namespaces) → hard duplicate-key error noting the module still renders without `-json`; the same module renders fine as YAML |
 
 ## Examples
 

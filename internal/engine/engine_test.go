@@ -481,6 +481,13 @@ export: objects: configMap: {
 	if !strings.Contains(err.Error(), `duplicate object key "ConfigMap/cm"`) {
 		t.Errorf("error = %q, want it to name the duplicate key", err)
 	}
+	if !strings.Contains(err.Error(), "renders fine without -json") {
+		t.Errorf("error = %q, want it to note the module still renders as YAML/KYAML", err)
+	}
+
+	if err := Exec(".", &out, Options{}); err != nil {
+		t.Errorf("YAML render should succeed for the same module: %v", err)
+	}
 }
 
 // TestOverlayCoversModuleRoot pins the fix for a security-relevant bug: the
