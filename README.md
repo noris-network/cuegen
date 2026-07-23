@@ -511,6 +511,12 @@ Tests the engine directly (in-process):
 | `TestExecSubdirUnifiesWithParent` | Loading a subdirectory unifies its package with the CWD's (a value hole only the subdirectory fills)                              |
 | `TestExecJSONKeyScheme`           | JSON key is always `<kind>/<name>`, even with a namespace set                                                                     |
 | `TestExecJSONDuplicateKindName`   | Same kind/name (even across two namespaces) → hard duplicate-key error noting the module still renders without `-json`; the same module renders fine as YAML |
+| `TestExecDeterministicAcrossRepeatedRenders` | A module with dynamically-generated object keys (`for k, v in` a struct) renders byte-identically 20 times in a row, in every format - guards against Go map iteration order leaking into the output |
+| `TestExamplesRenderDeterministically` | Every runnable module under `examples/` (`minimal`, `webapp/prod`, `webapp/dev`) renders byte-identically across two independent `Exec` calls, in every format |
+
+Determinism is also exercised at the `go test` level: run with `-count=10
+-race` to repeat every test ten times under the race detector, catching both
+flaky iteration order and data races that a single run would miss.
 
 ## Examples
 

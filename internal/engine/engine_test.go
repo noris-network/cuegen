@@ -1145,3 +1145,107 @@ func slicesContains(ss []string, s string) bool {
 	}
 	return false
 }
+
+// TestExamplesRenderDeterministically renders each runnable module under
+// examples/ twice in independent Exec calls and diffs the bytes, in every
+// format. This is the "real module" counterpart to
+// TestExecDeterministicAcrossRepeatedRenders: synthetic fixtures are
+// designed to expose nondeterminism, but the modules that actually ship in
+// the repo are what a regression would actually hit. examples/sops is
+// excluded - it needs an age key set up in the environment, which is
+// SOPS-specific test plumbing, not a determinism concern.
+func TestExamplesRenderDeterministically(t *testing.T) {
+	repoRoot, err := filepath.Abs("../..")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// (chdir, path) pairs - cuegen.cue is always read from chdir (see Exec's
+	// doc comment), so a subdirectory like webapp/prod that has no
+	// cuegen.cue of its own must be reached as path "./prod" from its
+	// parent, exactly like the CLI examples in the README.
+	modules := []struct{ chdir, path string }{
+		{"minimal", "."},
+		{"webapp", "./prod"},
+		{"webapp", "./dev"},
+	}
+	for _, m := range modules {
+		t.Run(m.chdir+"/"+m.path, func(t *testing.T) {
+			dir := filepath.Join(repoRoot, "examples", filepath.FromSlash(m.chdir))
+			if _, err := os.Stat(dir); err != nil {
+				t.Skipf("example module not found: %v", err)
+			}
+			t.Chdir(dir)
+			for _, format := range []Format{FormatYAML, FormatKYAML, FormatJSON} {
+				t.Run(format.String(), func(t *testing.T) {
+					var first, second bytes.Buffer
+					if err := Exec(m.path, &first, Options{Format: format}); err != nil {
+						t.Fatalf("render 1: %v", err)
+					}
+					if err := Exec(m.path, &second, Options{Format: format}); err != nil {
+						t.Fatalf("render 2: %v", err)
+					}
+					if first.String() != second.String() {
+						t.Fatalf("render 1 differs from render 2:\n--- render 1 ---\n%s\n--- render 2 ---\n%s", first.String(), second.String())
+					}
+				})
+			}
+		})
+	}
+}
+
+// TestExecDeterministicAcrossRepeatedRenders guards against the classic
+// failure mode of a tool like this: nondeterminism from Go map iteration
+// leaking into the output (e.g. via a CUE comprehension over a struct,
+// which internally has arc/map machinery of its own), surfacing only as a
+// sporadic diff once someone diffs two renders of the same input in
+// production. The export below generates its object keys dynamically with
+// a `for k, v in #items` comprehension - the shape most likely to expose
+// unstable iteration - and cuegen.Exec is run many times in the same
+// process; every render of the same input must produce byte-identical
+// output, in every format.
+func TestExecDeterministicAcrossRepeatedRenders(t *testing.T) {
+	dir := t.TempDir()
+	writeModule(t, dir, "")
+	writeFile(t, dir, "export.cue", `package control
+
+#items: {
+	c: "3"
+	a: "1"
+	e: "5"
+	b: "2"
+	d: "4"
+}
+
+export: objects: configMap: {
+	for k, v in #items {
+		"cm-\(k)": {
+			apiVersion: "v1"
+			kind:       "ConfigMap"
+			metadata: name: "cm-\(k)"
+			data: value: v
+		}
+	}
+}
+`)
+	t.Chdir(dir)
+
+	const renders = 20
+	for _, format := range []Format{FormatYAML, FormatKYAML, FormatJSON} {
+		t.Run(format.String(), func(t *testing.T) {
+			var first string
+			for i := range renders {
+				var out bytes.Buffer
+				if err := Exec(".", &out, Options{Format: format}); err != nil {
+					t.Fatalf("render %d: %v", i, err)
+				}
+				if i == 0 {
+					first = out.String()
+					continue
+				}
+				if got := out.String(); got != first {
+					t.Fatalf("render %d differs from render 0:\n--- render 0 ---\n%s\n--- render %d ---\n%s", i, first, i, got)
+				}
+			}
+		})
+	}
+}
