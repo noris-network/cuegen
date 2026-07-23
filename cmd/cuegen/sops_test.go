@@ -30,9 +30,18 @@ func genAgeIdentity(t *testing.T) (priv, pub string) {
 // encrypted bytes.
 func sopsEncrypt(t *testing.T, plaintext []byte, recipient, inputType, outputType, filenameOverride string) []byte {
 	t.Helper()
-	cmd := exec.Command("sops", "encrypt", "--age", recipient,
-		"--input-type", inputType, "--output-type", outputType,
+	return sopsEncryptArgs(t, plaintext, filenameOverride,
+		"--age", recipient, "--input-type", inputType, "--output-type", outputType,
 		"--filename-override", filenameOverride)
+}
+
+// sopsEncryptArgs is sopsEncrypt with full control over the sops CLI args,
+// so tests can exercise crypt rules other than the default unencrypted_suffix
+// (e.g. --encrypted-regex, the standard way to encrypt only the data/
+// stringData fields of a Kubernetes Secret).
+func sopsEncryptArgs(t *testing.T, plaintext []byte, filenameOverride string, args ...string) []byte {
+	t.Helper()
+	cmd := exec.Command("sops", append([]string{"encrypt"}, args...)...)
 	cmd.Stdin = bytes.NewReader(plaintext)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
@@ -88,10 +97,18 @@ func TestLooksLikeSops(t *testing.T) {
 		{"yaml both keys", "sops:\n    age: []\nunencrypted_suffix: _\n", true},
 		{"comment mention only", "// sops manages this\npackage x", false},
 		{"plain text", "hello world", false},
-		{"sops without suffix", `{"sops":{}}`, false},
+		{"sops without suffix or mac", `{"sops":{}}`, false},
 		{"suffix without sops", `{"unencrypted_suffix":"_"}`, false},
-		{"yaml sops without suffix", "sops:\n    age: []\n", false},
+		{"yaml sops without suffix or mac", "sops:\n    age: []\n", false},
 		{"yaml suffix without sops", "unencrypted_suffix: _\n", false},
+		// A file encrypted with a crypt rule other than the default
+		// (e.g. --encrypted-regex) carries no unencrypted_suffix key at
+		// all, but mac is unconditionally written regardless of rule -
+		// this is the real shape of such a file (see
+		// TestSopsFilterEncryptedRegex for the end-to-end case).
+		{"yaml sops with mac, no suffix", "data:\n    password: ENC[...]\nsops:\n    age: []\n    mac: ENC[...]\n    encrypted_regex: ^password$\n", true},
+		{"json sops with mac, no suffix", `{"sops":{"mac":"ENC[...]","encrypted_regex":"^password$"}}`, true},
+		{"mac without sops", `{"mac":"ENC[...]"}`, false},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -143,6 +160,44 @@ func TestSopsFilterNativeYAML(t *testing.T) {
 		}
 		if !bytes.Contains(out, []byte("svc-foo")) || !bytes.Contains(out, []byte("s3cret")) {
 			t.Errorf("decrypted values missing:\n%s", out)
+		}
+	})
+}
+
+// TestSopsFilterEncryptedRegex encrypts a YAML file using --encrypted-regex
+// instead of the default unencrypted_suffix crypt rule - the standard sops
+// config for a Kubernetes Secret, encrypting only the data/stringData
+// fields. Such a file carries no unencrypted_suffix key, so it exercises
+// the mac-based fallback in looksLikeSops: without it, this genuine sops
+// file would be missed entirely and its ciphertext would flow straight
+// into the rendered manifest with no error (the false-negative path noted
+// in review.md P1.3).
+func TestSopsFilterEncryptedRegex(t *testing.T) {
+	requireSopsCLI(t)
+	priv, pub := genAgeIdentity(t)
+	plaintext := []byte("data:\n    password: s3cret\n    username: admin\n")
+	encrypted := sopsEncryptArgs(t, plaintext, "secret.enc.yaml",
+		"--age", pub, "--encrypted-regex", "^password$",
+		"--input-type", "yaml", "--output-type", "yaml",
+		"--filename-override", "secret.enc.yaml")
+
+	if bytes.Contains(encrypted, []byte("unencrypted_suffix")) {
+		t.Fatalf("test setup: expected no unencrypted_suffix key, got:\n%s", encrypted)
+	}
+	if !looksLikeSops(encrypted) {
+		t.Fatal("looksLikeSops missed a genuine sops file with no unencrypted_suffix key")
+	}
+
+	withAgeKey(t, priv, func() {
+		out, err := sopsFilter("secret.enc.yaml", encrypted)
+		if err != nil {
+			t.Fatalf("sopsFilter: %v", err)
+		}
+		if bytes.Contains(out, []byte("sops:")) {
+			t.Errorf("sops block not stripped:\n%s", out)
+		}
+		if !bytes.Contains(out, []byte("s3cret")) {
+			t.Errorf("decrypted value missing:\n%s", out)
 		}
 	})
 }

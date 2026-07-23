@@ -321,6 +321,22 @@ decrypted (e.g. missing or rotated key), cuegen fails hard - encrypted values
 are never passed through. A pure heuristic false positive (the markers
 appearing by chance in a non-SOPS file) is silently passed through instead.
 
+### Detection heuristic
+
+Before attempting a decrypt, cuegen pre-filters files with a cheap byte-level
+check (`sops:`/`"sops"` paired with `mac:`/`"mac"` or
+`unencrypted_suffix:`/`"unencrypted_suffix"`) so files sops has no reason to
+touch aren't run through the decrypt path at all. `mac` is written to every
+SOPS file unconditionally, regardless of which crypt rule was used to
+encrypt it - `unencrypted_suffix` alone is not sufficient, since it is only
+one of six mutually exclusive crypt rules (`encrypted_suffix`,
+`{en,un}encrypted_regex`, `{en,un}encrypted_comment_regex` also qualify) and
+is absent from files encrypted with any of the others, e.g. a Kubernetes
+Secret encrypted with `--encrypted-regex '^data$'` to cover only its
+`data`/`stringData` fields. Pairing on `mac` closes that gap: any real SOPS
+file is now detected regardless of its crypt rule, so ciphertext can no
+longer flow through unrecognized and unencrypted into a rendered manifest.
+
 ## Implementation
 
 ### Data flow

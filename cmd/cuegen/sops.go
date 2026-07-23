@@ -95,6 +95,20 @@ func sopsFormat(path string) string {
 // trips it too. That is harmless: a false positive that is not a genuine
 // sops file is passed through unchanged by sopsFilter, so the only cost is a
 // wasted decrypt attempt.
+//
+// unencrypted_suffix is NOT reliable on its own as the "this is really a
+// sops file" signal: it is one of six mutually exclusive crypt rules
+// (encrypted_suffix, {en,un}encrypted_regex, {en,un}encrypted_comment_regex
+// also qualify) and the sops CLI only defaults to it when the file was
+// encrypted with none of the others configured. A file encrypted with
+// e.g. `--encrypted-regex '^data$'` - the standard way to encrypt only the
+// data/stringData fields of a Kubernetes Secret - carries no
+// unencrypted_suffix key at all, so requiring it here would miss the file
+// entirely: it would be loaded as-is, ciphertext and all, straight into the
+// rendered manifest with no error. mac, by contrast, is not part of that
+// omitempty group; it is unconditionally written to every sops file
+// regardless of which crypt rule was used, so pairing it with sops: closes
+// that gap.
 func looksLikeSops(raw []byte) bool {
 	// Combined token - quoted (JSON) or colon-terminated (YAML).
 	if bytes.Contains(raw, []byte(`"sops_unencrypted_suffix"`)) ||
@@ -106,5 +120,7 @@ func looksLikeSops(raw []byte) bool {
 		bytes.Contains(raw, []byte("sops:"))
 	hasSuffix := bytes.Contains(raw, []byte(`"unencrypted_suffix"`)) ||
 		bytes.Contains(raw, []byte("unencrypted_suffix:"))
-	return hasSops && hasSuffix
+	hasMac := bytes.Contains(raw, []byte(`"mac"`)) ||
+		bytes.Contains(raw, []byte("mac:"))
+	return hasSops && (hasSuffix || hasMac)
 }
