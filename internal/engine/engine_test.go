@@ -942,6 +942,58 @@ export: objects: configMap: cm: {
 	}
 }
 
+// TestExecFiltersThroughSymlinkedCwd pins the fix for a bug where a working
+// directory reached through a symlink (e.g. ~/workspace ->
+// ~/Spaces/.../workspace) made every FileFilter-produced overlay entry miss
+// silently: buildOverlay keys its map by the symlink-resolved root, while
+// moduleRoot (and therefore load.Config, which previously had no Dir set at
+// all) used the raw, unresolved os.Getwd(). CUE's loader would then look up
+// files under the unresolved path, miss the overlay entirely, and fall back
+// to the on-disk (pre-filter) bytes - in the real-world case, a still-
+// encrypted SOPS file rendered with no error.
+//
+// The test builds a module in a real temp directory, then chdirs into a
+// symlink that points at it (mirroring the symlinked-cwd scenario) and
+// renders through a filter that rewrites a marker value. If the overlay
+// keying and the loader's lookup path ever diverge again, the marker - not
+// the filtered replacement - will show up in the output.
+func TestExecFiltersThroughSymlinkedCwd(t *testing.T) {
+	realDir := t.TempDir()
+	writeModule(t, realDir, "")
+	writeFile(t, realDir, "export.cue", `package control
+
+export: objects: configMap: cm: {
+	apiVersion: "v1"
+	kind:       "ConfigMap"
+	metadata: name: "cm"
+	data: token: "MARKER_UNFILTERED"
+}
+`)
+
+	linkParent := t.TempDir()
+	symlinkDir := filepath.Join(linkParent, "link")
+	if err := os.Symlink(realDir, symlinkDir); err != nil {
+		t.Skipf("symlink not supported: %v", err)
+	}
+
+	filter := func(path string, raw []byte) ([]byte, error) {
+		return []byte(strings.ReplaceAll(string(raw), "MARKER_UNFILTERED", "decrypted")), nil
+	}
+
+	t.Chdir(symlinkDir)
+	var out bytes.Buffer
+	if err := Exec(".", &out, Options{FileFilter: filter}); err != nil {
+		t.Fatalf("Exec: %v", err)
+	}
+	got := out.String()
+	if strings.Contains(got, "MARKER_UNFILTERED") {
+		t.Errorf("output contains unfiltered marker when cwd is a symlink; overlay lookup missed:\n%s", got)
+	}
+	if !strings.Contains(got, "decrypted") {
+		t.Errorf("output missing decrypted value when cwd is a symlink:\n%s", got)
+	}
+}
+
 // failingWriter is an io.Writer that accepts the first failAfter bytes, then
 // returns an error on every subsequent write. Used to provoke a flush/write
 // error from writeYaml's encoder.Close path.

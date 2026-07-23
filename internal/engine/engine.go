@@ -122,6 +122,7 @@ func Exec(path string, out io.Writer, opts Options) error {
 	// The overlay only ever contains files the filter changed; without a
 	// filter it would always be empty, so the walk is skipped entirely.
 	var overlay map[string]load.Source
+	var dir string
 	if opts.FileFilter != nil {
 		root, err := moduleRoot()
 		if err != nil {
@@ -131,9 +132,20 @@ func Exec(path string, out io.Writer, opts Options) error {
 		if err != nil {
 			return fmt.Errorf("build overlay for %q: %w", root, err)
 		}
+		// buildOverlay keys the overlay by the symlink-resolved absolute
+		// path (see its own EvalSymlinks call). load.Instances otherwise
+		// resolves the module root from the process's raw os.Getwd(), which
+		// differs whenever the working directory is reached through a
+		// symlink (e.g. ~/workspace -> ~/Spaces/.../workspace) - the loader
+		// would then look up files under the unresolved path while the
+		// overlay only has entries under the resolved one, so every overlay
+		// hit silently misses and the loader falls back to the on-disk
+		// (still-encrypted) file. Pinning Dir to the same resolved root the
+		// overlay was built from keeps both path spaces identical.
+		dir = root
 	}
 
-	cfg := &load.Config{Overlay: overlay}
+	cfg := &load.Config{Overlay: overlay, Dir: dir}
 	insts := load.Instances([]string{path}, cfg)
 	if len(insts) == 0 {
 		return fmt.Errorf("load instance %q: no instance returned", path)
@@ -487,10 +499,21 @@ var maxOverlayVisits = 1_000_000
 // a directory's package with every ancestor up to the module root and loads
 // @embed targets from anywhere in the module, so the overlay must cover
 // the entire module tree - not just the render path argument (e.g. ./prod).
+//
+// The returned path is symlink-resolved (matching buildOverlay's own
+// EvalSymlinks call on it) so that callers who feed it to both buildOverlay
+// and load.Config.Dir see the same canonical path in the overlay keys and in
+// CUE's loader - otherwise a working directory reached through a symlink
+// (e.g. ~/workspace -> ~/Spaces/.../workspace) would make every overlay
+// lookup miss silently, since the loader would resolve files under the
+// unresolved path while the overlay only has entries under the resolved one.
 func moduleRoot() (string, error) {
 	dir, err := os.Getwd()
 	if err != nil {
 		return "", err
+	}
+	if resolved, err := filepath.EvalSymlinks(dir); err == nil {
+		dir = resolved
 	}
 	for {
 		if info, err := os.Stat(filepath.Join(dir, "cue.mod")); err == nil && info.IsDir() {
