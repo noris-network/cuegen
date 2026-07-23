@@ -416,20 +416,20 @@ directory containing cuegen.cue; the optional path (default ".") names a value
 to unify into the current module.
 
 Flags:
-  -h                  print this usage and exit
-  -kyaml              emit KYAML (flow-style) instead of block YAML
-  -json               emit a JSON object keyed by <kind>/<metadata.name>,
-                      mainly for debugging the generated manifest (e.g. with fx)
-  -wide               indent list items under their parent key (yq-style)
-                      (also enabled by CUEGEN_WIDE=true)
-  -hash               print only the output digest, as "sha256:<hex>"
-  -cmp-hash <digest>  compare output digest to <digest> (algo:hex, or an
-                      algo:<12+ hex chars> prefix); exit 0 match, 100
-                      mismatch, 1 on a malformed digest
-  -is-cuegen-dir      ArgoCD probe: print "true" when cuegen.cue is present
+  -h                    print this usage and exit
+  -kyaml                emit KYAML (flow-style) instead of block YAML
+  -json                 emit a JSON object keyed by <kind>/<metadata.name>,
+                        mainly for debugging the generated manifest (e.g. with fx)
+  -wide                 indent list items under their parent key (yq-style)
+                        (also enabled by CUEGEN_WIDE=true)
+  -hash                 print only the output digest, as "sha256:<hex>"
+  -cmp-hash <algo:hex>  compare output digest to <algo:hex> (or an
+                        algo:<12+ hex chars> prefix); exit 0 match, 100
+                        mismatch, 1 on a malformed digest
+  -is-cuegen-dir        ArgoCD probe: print "true" when cuegen.cue is present
 
 Well-known arguments (replace the path, take no flags):
-  version             print version and exit (alias: -version)
+  version               print version and exit (alias: -version)
 
 -kyaml/-json and -hash/-cmp-hash are mutually exclusive. All flags except
 -is-cuegen-dir require a v2 module; older modules fall back to cuegen_v0.16.8.

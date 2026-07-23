@@ -471,7 +471,7 @@ The `-hash`, `-cmp-hash`, and `-is-cuegen-dir` flags are recognized early,
 before the version banner is printed. These flags must produce no
 diagnostic output.
 
-`-kyaml`, `-hash`, and `-cmp-hash <digest>` are filtered out of the argument
+`-kyaml`, `-hash`, and `-cmp-hash <algo:hex>` are filtered out of the argument
 list so the remaining path is recognized correctly. All flags are
 position-independent. Every recognized flag is additionally recorded in
 `v2Flags`; `runLegacy` checks this list before the `execve`: if it is
