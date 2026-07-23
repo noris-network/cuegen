@@ -393,7 +393,7 @@ func TestMutuallyExclusiveFlags(t *testing.T) {
 }
 
 // TestUnknownFlagRejected verifies that v2 modules reject dash-prefixed
-// arguments the flag scan did not recognize - a typo ("-shal", "--json")
+// arguments the flag scan did not recognize - a typo ("-hsah", "--json")
 // must not silently become a path argument and change the output.
 func TestUnknownFlagRejected(t *testing.T) {
 	dir := t.TempDir()
@@ -405,7 +405,7 @@ func TestUnknownFlagRejected(t *testing.T) {
 		wantErr string
 	}{
 		{"double-dash flag", []string{"--json", "."}, `unknown flag "--json"`},
-		{"flag typo", []string{"-shal", "."}, `unknown flag "-shal"`},
+		{"flag typo", []string{"-hsah", "."}, `unknown flag "-hsah"`},
 		{"is-cuegen-dir combined", []string{"-is-cuegen-dir", "."}, "-is-cuegen-dir must be the only argument"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
