@@ -61,7 +61,7 @@ cuegen path/to/module
 cuegen .
 # output KYAML (flow-style) instead of block YAML:
 cuegen -kyaml .
-# output a JSON object keyed by <kind>/<name> (suitable for fx/jq):
+# output a JSON object keyed by <kind>/<name> (suitable for fx/yq/jq):
 cuegen -json .
 # indent list items under their parent key (yq-style):
 cuegen -wide .
