@@ -98,7 +98,7 @@ message instead of silently dropping the flags - in particular,
 anything.
 
 v2 modules accept at most one positional argument (the module path).
-Unknown flags (`--json`, typos like `-shal`) and extra arguments are
+Unknown flags (`--json`, typos like `-hsah`) and extra arguments are
 errors (exit 1) - otherwise they would be misinterpreted as a path or
 silently discarded. On the legacy fallback, by contrast, all unrecognized
 arguments are forwarded to the legacy binary unchanged.
@@ -513,7 +513,7 @@ since `main()` uses `os.Exit`):
 | `TestMissingCuegenCueIsHardError`        | No `cuegen.cue` in the CWD → exit 1, no legacy fallback attempted (with or without flags)                                            |
 | `TestLegacyFallbackWithoutFlags`         | A flag-free invocation still execs the legacy binary, args unchanged                                                                 |
 | `TestLegacyFallbackForwardsUnknownFlags` | Unknown flags are forwarded verbatim to the binary on the legacy fallback                                                            |
-| `TestUnknownFlagRejected`                | v2: `--json`, `-shal`, combined `-is-cuegen-dir` → exit 1 naming the flag                                                            |
+| `TestUnknownFlagRejected`                | v2: `--json`, `-hsah`, combined `-is-cuegen-dir` → exit 1 naming the flag                                                            |
 | `TestExtraArgsRejected`                  | v2: more than one positional argument → exit 1, `too many arguments`                                                                 |
 | `TestPathArgumentUnifiesWithCWD`         | `cuegen sub` reads `cuegen.cue` from the CWD, not `sub/`, and unifies `sub`'s package with the CWD's (a value hole only `sub` fills) |
 | `TestVersionAliases`                     | `version`, `-version`, `--version` → version line, exit 0                                                                            |
