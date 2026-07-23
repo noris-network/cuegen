@@ -73,9 +73,9 @@ cuegen -kyaml . | diff expected.kyaml -
 cuegen -json . | diff expected.json -
 ```
 
-Hash verification:
+Digest verification:
 
 ```
-cuegen -sha1 .
-cuegen -cmp-sha1 <hash> .   # exit 0 on match, 100 on mismatch
+cuegen -hash .
+cuegen -cmp-hash <algo:hex> .   # exit 0 on match, 100 on mismatch
 ```

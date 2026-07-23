@@ -1058,8 +1058,8 @@ func TestExportPathDefaultsAndValidation(t *testing.T) {
 }
 
 // TestExecKYAMLFlowStyle pins the KYAML output shape directly (flow style,
-// double-quoted strings) rather than relying on the indirect -sha1 -kyaml
-// hash equivalence tested in the cmd package.
+// double-quoted strings) rather than relying on the indirect -hash -kyaml
+// digest equivalence tested in the cmd package.
 func TestExecKYAMLFlowStyle(t *testing.T) {
 	dir := t.TempDir()
 	writeModule(t, dir, "")

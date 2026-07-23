@@ -2,7 +2,8 @@ package main
 
 import (
 	"bytes"
-	"crypto/sha1"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"maps"
@@ -18,10 +19,16 @@ import (
 // path. The binary is shared across all tests in the package.
 var cuegenBin string
 
-// wrongSHA1 is a syntactically valid SHA1 (40 hex chars) that no rendered
-// output will ever hash to - used to exercise the mismatch path (exit 100)
-// without tripping the -cmp-sha1 format validation.
-const wrongSHA1 = "0000000000000000000000000000000000000000"
+// wrongHash is a syntactically valid sha256 digest (64 hex chars) that no
+// rendered output will ever hash to - used to exercise the mismatch path
+// (exit 100) without tripping the -cmp-hash format validation.
+const wrongHash = "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+
+// hashOf computes the "sha256:<hex>" digest of s, the same form -hash prints.
+func hashOf(s string) string {
+	sum := sha256.Sum256([]byte(s))
+	return "sha256:" + hex.EncodeToString(sum[:])
+}
 
 func TestMain(m *testing.M) {
 	bin, err := os.CreateTemp("", "cuegen-test-*")
@@ -106,35 +113,34 @@ func runCuegen(t *testing.T, dir string, args ...string) (string, string, int) {
 	return stdout.String(), stderr.String(), exitCode
 }
 
-// TestSha1Flag verifies that -sha1 prints only the SHA1 hex digest of the
-// output, with no version banner on stderr.
-func TestSha1Flag(t *testing.T) {
+// TestHashFlag verifies that -hash prints only the "sha256:<hex>" digest of
+// the output, with no version banner on stderr.
+func TestHashFlag(t *testing.T) {
 	dir := t.TempDir()
 	writeTestModule(t, dir)
 
-	stdout, stderr, exit := runCuegen(t, dir, "-sha1", ".")
+	stdout, stderr, exit := runCuegen(t, dir, "-hash", ".")
 	if exit != 0 {
 		t.Fatalf("exit %d, stderr: %s", exit, stderr)
 	}
 
-	// Compute the expected hash from a normal render.
+	// Compute the expected digest from a normal render.
 	normalOut, _, ne := runCuegen(t, dir, ".")
 	if ne != 0 {
 		t.Fatalf("normal render exit %d", ne)
 	}
-	sum := sha1.Sum([]byte(normalOut))
-	want := fmt.Sprintf("%x\n", sum)
+	want := hashOf(normalOut) + "\n"
 
 	if stdout != want {
-		t.Errorf("-sha1 stdout = %q, want %q", stdout, want)
+		t.Errorf("-hash stdout = %q, want %q", stdout, want)
 	}
 	if stderr != "" {
-		t.Errorf("-sha1 stderr should be empty, got %q", stderr)
+		t.Errorf("-hash stderr should be empty, got %q", stderr)
 	}
 }
 
-// TestSha1KyamlFlag verifies -sha1 works with -kyaml.
-func TestSha1KyamlFlag(t *testing.T) {
+// TestHashKyamlFlag verifies -hash works with -kyaml.
+func TestHashKyamlFlag(t *testing.T) {
 	dir := t.TempDir()
 	writeTestModule(t, dir)
 
@@ -142,23 +148,24 @@ func TestSha1KyamlFlag(t *testing.T) {
 	if ne != 0 {
 		t.Fatalf("kyaml render exit %d", ne)
 	}
-	sum := sha1.Sum([]byte(kyamlOut))
-	want := fmt.Sprintf("%x\n", sum)
+	want := hashOf(kyamlOut) + "\n"
 
-	stdout, stderr, exit := runCuegen(t, dir, "-sha1", "-kyaml", ".")
+	stdout, stderr, exit := runCuegen(t, dir, "-hash", "-kyaml", ".")
 	if exit != 0 {
 		t.Fatalf("exit %d, stderr: %s", exit, stderr)
 	}
 	if stdout != want {
-		t.Errorf("-sha1 -kyaml stdout = %q, want %q", stdout, want)
+		t.Errorf("-hash -kyaml stdout = %q, want %q", stdout, want)
 	}
 	if stderr != "" {
 		t.Errorf("stderr should be empty, got %q", stderr)
 	}
 }
 
-// TestCmpSha1Match verifies that -cmp-sha1 exits 0 when the hash matches.
-func TestCmpSha1Match(t *testing.T) {
+// TestCmpHashMatch verifies that -cmp-hash exits 0 when the digest matches,
+// both as a full digest and as a shortened prefix, and that hex casing is
+// normalized.
+func TestCmpHashMatch(t *testing.T) {
 	dir := t.TempDir()
 	writeTestModule(t, dir)
 
@@ -166,10 +173,9 @@ func TestCmpSha1Match(t *testing.T) {
 	if ne != 0 {
 		t.Fatalf("normal render exit %d", ne)
 	}
-	sum := sha1.Sum([]byte(normalOut))
-	hash := fmt.Sprintf("%x", sum)
+	digest := hashOf(normalOut)
 
-	stdout, stderr, exit := runCuegen(t, dir, "-cmp-sha1", hash, ".")
+	stdout, stderr, exit := runCuegen(t, dir, "-cmp-hash", digest, ".")
 	if exit != 0 {
 		t.Errorf("expected exit 0 on match, got %d (stderr: %s)", exit, stderr)
 	}
@@ -180,56 +186,84 @@ func TestCmpSha1Match(t *testing.T) {
 		t.Errorf("stderr should be empty, got %q", stderr)
 	}
 
-	// The validator accepts uppercase hex, so the comparison must too:
-	// an uppercase hash of the same digest is a match, not a mismatch.
-	_, stderr, exit = runCuegen(t, dir, "-cmp-sha1", strings.ToUpper(hash), ".")
+	// The parser accepts uppercase hex, so the comparison must too: an
+	// uppercase digest of the same output is a match, not a mismatch.
+	_, stderr, exit = runCuegen(t, dir, "-cmp-hash", strings.ToUpper(digest), ".")
 	if exit != 0 {
 		t.Errorf("expected exit 0 on uppercase match, got %d (stderr: %s)", exit, stderr)
 	}
+
+	// A 12-character prefix of the same digest is also a match.
+	prefix := digest[:len("sha256:")+12]
+	_, stderr, exit = runCuegen(t, dir, "-cmp-hash", prefix, ".")
+	if exit != 0 {
+		t.Errorf("expected exit 0 on prefix match, got %d (stderr: %s)", exit, stderr)
+	}
 }
 
-// TestCmpSha1Mismatch verifies that -cmp-sha1 exits 100 when the hash differs.
-func TestCmpSha1Mismatch(t *testing.T) {
+// TestCmpHashMismatch verifies that -cmp-hash exits 100 when the digest
+// differs, reporting both the expected and the actual digest on stderr so
+// the caller can see what actually rendered without a separate -hash run.
+func TestCmpHashMismatch(t *testing.T) {
 	dir := t.TempDir()
 	writeTestModule(t, dir)
 
-	stdout, stderr, exit := runCuegen(t, dir, "-cmp-sha1", wrongSHA1, ".")
+	normalOut, _, ne := runCuegen(t, dir, ".")
+	if ne != 0 {
+		t.Fatalf("normal render exit %d", ne)
+	}
+	actual := hashOf(normalOut)
+
+	stdout, stderr, exit := runCuegen(t, dir, "-cmp-hash", wrongHash, ".")
 	if exit != 100 {
 		t.Errorf("expected exit 100 on mismatch, got %d", exit)
 	}
 	if stdout != "" {
 		t.Errorf("stdout should be empty on mismatch, got %q", stdout)
 	}
-	if stderr != "" {
-		t.Errorf("stderr should be empty, got %q", stderr)
+	if !strings.Contains(stderr, wrongHash) {
+		t.Errorf("stderr should report the expected digest %q, got %q", wrongHash, stderr)
+	}
+	if !strings.Contains(stderr, actual) {
+		t.Errorf("stderr should report the actual digest %q, got %q", actual, stderr)
 	}
 }
 
-// TestCmpSha1InvalidHash verifies that a malformed hash argument is a usage
+// TestCmpHashInvalid verifies that a malformed digest argument is a usage
 // error (exit 1 with a diagnostic), not a mismatch (exit 100) - a typo'd
-// hash must not be mistakable for drift.
-func TestCmpSha1InvalidHash(t *testing.T) {
+// digest must not be mistakable for drift.
+func TestCmpHashInvalid(t *testing.T) {
 	dir := t.TempDir()
 	writeTestModule(t, dir)
 
-	for _, invalid := range []string{"deadbeef", "wrong", ""} {
-		stdout, stderr, exit := runCuegen(t, dir, "-cmp-sha1", invalid, ".")
+	for _, tc := range []struct {
+		in      string
+		wantErr string
+	}{
+		{"deadbeef", "missing an algorithm prefix"},
+		{"", "missing an algorithm prefix"},
+		{"md5:deadbeefdeadbeefdeadbeefdeadbeef", "unsupported hash algorithm"},
+		{"sha256:", "empty hex part"},
+		{"sha256:zzzzzzzzzzzz", "non-hex characters"},
+		{"sha256:deadbeefdea", "too short"}, // 11 chars, below the 12 minimum
+	} {
+		stdout, stderr, exit := runCuegen(t, dir, "-cmp-hash", tc.in, ".")
 		if exit != 1 {
-			t.Errorf("-cmp-sha1 %q: expected exit 1, got %d", invalid, exit)
+			t.Errorf("-cmp-hash %q: expected exit 1, got %d (stderr: %s)", tc.in, exit, stderr)
 		}
 		if stdout != "" {
-			t.Errorf("-cmp-sha1 %q: stdout should be empty, got %q", invalid, stdout)
+			t.Errorf("-cmp-hash %q: stdout should be empty, got %q", tc.in, stdout)
 		}
-		if !strings.Contains(stderr, "not a valid SHA1 hash") {
-			t.Errorf("-cmp-sha1 %q: stderr should explain the invalid hash, got %q", invalid, stderr)
+		if !strings.Contains(stderr, tc.wantErr) {
+			t.Errorf("-cmp-hash %q: stderr should contain %q, got %q", tc.in, tc.wantErr, stderr)
 		}
 	}
 
 	// A missing value - flag at the end, or followed by another flag -
 	// gets its own diagnostic instead of swallowing the next argument.
 	for _, args := range [][]string{
-		{"-cmp-sha1"},
-		{"-cmp-sha1", "-kyaml", "."},
+		{"-cmp-hash"},
+		{"-cmp-hash", "-kyaml", "."},
 	} {
 		_, stderr, exit := runCuegen(t, dir, args...)
 		if exit != 1 {
@@ -241,8 +275,8 @@ func TestCmpSha1InvalidHash(t *testing.T) {
 	}
 }
 
-// TestCmpSha1Kyaml verifies -cmp-sha1 against a KYAML-output hash.
-func TestCmpSha1Kyaml(t *testing.T) {
+// TestCmpHashKyaml verifies -cmp-hash against a KYAML-output digest.
+func TestCmpHashKyaml(t *testing.T) {
 	dir := t.TempDir()
 	writeTestModule(t, dir)
 
@@ -250,27 +284,26 @@ func TestCmpSha1Kyaml(t *testing.T) {
 	if ne != 0 {
 		t.Fatalf("kyaml render exit %d", ne)
 	}
-	sum := sha1.Sum([]byte(kyamlOut))
-	hash := fmt.Sprintf("%x", sum)
+	digest := hashOf(kyamlOut)
 
-	_, _, exit := runCuegen(t, dir, "-cmp-sha1", hash, "-kyaml", ".")
+	_, _, exit := runCuegen(t, dir, "-cmp-hash", digest, "-kyaml", ".")
 	if exit != 0 {
 		t.Errorf("expected exit 0 on kyaml match, got %d", exit)
 	}
 
-	_, _, exit = runCuegen(t, dir, "-cmp-sha1", wrongSHA1, "-kyaml", ".")
+	_, _, exit = runCuegen(t, dir, "-cmp-hash", wrongHash, "-kyaml", ".")
 	if exit != 100 {
 		t.Errorf("expected exit 100 on kyaml mismatch, got %d", exit)
 	}
 }
 
-// TestHashStabilityAcrossPatchReleases pins the -sha1 output of
-// examples/minimal to fixed values, in every format. This is the contract
-// documented in the README: the hash is guaranteed stable across patch
+// TestHashStabilityAcrossPatchReleases pins the -hash output of
+// examples/minimal to fixed digests, in every format. This is the contract
+// documented in the README: the digest is guaranteed stable across patch
 // releases only. A failure here means either an accidental output change
 // (a real regression - fix it) or a deliberate one (a legitimate reason to
 // touch canonical formatting) - the latter requires at least a minor
-// version bump, together with a README/CHANGELOG note and updated hashes
+// version bump, together with a README/CHANGELOG note and updated digests
 // here.
 func TestHashStabilityAcrossPatchReleases(t *testing.T) {
 	dir := "../../examples/minimal"
@@ -279,9 +312,9 @@ func TestHashStabilityAcrossPatchReleases(t *testing.T) {
 		args []string
 		want string
 	}{
-		{"yaml", []string{"-sha1", "."}, "cb656e55d0ac14fe2ec1aeac882313ccc7481ca6"},
-		{"kyaml", []string{"-sha1", "-kyaml", "."}, "9bb93f73ff9b336fda4ddc2516f46961cfb2d87b"},
-		{"json", []string{"-sha1", "-json", "."}, "816bf30cb5570cdf605e6ee2544013ad38280f23"},
+		{"yaml", []string{"-hash", "."}, "sha256:5a83a6c36a52dec6fce78bbddbac70a0923f50f6661f28869fb154b421bea0c9"},
+		{"kyaml", []string{"-hash", "-kyaml", "."}, "sha256:56fd5042297bef218668f9380556d102e7deac9508b4ccbcee9186b9a737fb0b"},
+		{"json", []string{"-hash", "-json", "."}, "sha256:a26385333957d07a921dfbbef3c579d2a06f463fa6784669cbab7e774c3adfc3"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -290,7 +323,7 @@ func TestHashStabilityAcrossPatchReleases(t *testing.T) {
 				t.Fatalf("exit = %d, stderr = %q", exit, stderr)
 			}
 			if got := strings.TrimSpace(stdout); got != tt.want {
-				t.Errorf("hash = %q, want %q (pinned - see test doc comment before updating)", got, tt.want)
+				t.Errorf("digest = %q, want %q (pinned - see test doc comment before updating)", got, tt.want)
 			}
 		})
 	}
@@ -330,8 +363,8 @@ func TestNormalRenderShowsBanner(t *testing.T) {
 }
 
 // TestMutuallyExclusiveFlags verifies that contradictory flag pairs are
-// rejected with a diagnostic instead of one flag silently winning: -sha1
-// would otherwise swallow -cmp-sha1's compare-and-exit contract.
+// rejected with a diagnostic instead of one flag silently winning: -hash
+// would otherwise swallow -cmp-hash's compare-and-exit contract.
 func TestMutuallyExclusiveFlags(t *testing.T) {
 	dir := t.TempDir()
 	writeTestModule(t, dir)
@@ -340,8 +373,8 @@ func TestMutuallyExclusiveFlags(t *testing.T) {
 		name string
 		args []string
 	}{
-		{"sha1+cmp-sha1", []string{"-sha1", "-cmp-sha1", wrongSHA1, "."}},
-		{"cmp-sha1+sha1", []string{"-cmp-sha1", wrongSHA1, "-sha1", "."}},
+		{"hash+cmp-hash", []string{"-hash", "-cmp-hash", wrongHash, "."}},
+		{"cmp-hash+hash", []string{"-cmp-hash", wrongHash, "-hash", "."}},
 		{"kyaml+json", []string{"-kyaml", "-json", "."}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -508,7 +541,7 @@ func TestMissingCuegenCueIsHardError(t *testing.T) {
 		args []string
 	}{
 		{"no flags", []string{"."}},
-		{"v2 flag", []string{"-sha1", "."}},
+		{"v2 flag", []string{"-hash", "."}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			stdout, stderr, exit := runCuegen(t, dir, tc.args...)
@@ -542,7 +575,7 @@ cuegen: apiVersion: "v1beta1"
 
 // TestLegacyFallbackRejectsV2Flags verifies that v2-only flags abort the
 // legacy fallback with a diagnostic instead of being silently dropped -
-// -cmp-sha1 exiting 0 without comparing would fake a hash match. The guard
+// -cmp-hash exiting 0 without comparing would fake a digest match. The guard
 // fires before the legacy binary is looked up, so none is needed here.
 func TestLegacyFallbackRejectsV2Flags(t *testing.T) {
 	legacyDir := t.TempDir()
@@ -553,8 +586,8 @@ func TestLegacyFallbackRejectsV2Flags(t *testing.T) {
 		dir  string
 		args []string
 	}{
-		{"sha1", legacyDir, []string{"-sha1", "."}},
-		{"cmp-sha1", legacyDir, []string{"-cmp-sha1", wrongSHA1, "."}},
+		{"hash", legacyDir, []string{"-hash", "."}},
+		{"cmp-hash", legacyDir, []string{"-cmp-hash", wrongHash, "."}},
 		{"json", legacyDir, []string{"-json", "."}},
 		{"kyaml", legacyDir, []string{"-kyaml", "."}},
 	} {
@@ -629,7 +662,7 @@ func TestLegacyFallbackForwardsUnknownFlags(t *testing.T) {
 
 // TestJsonFlag verifies -json produces a valid JSON object keyed by
 // "<kind>/<metadata.name>", with the correct number of entries, and that
-// the hash matches `cuegen -json | sha1sum`.
+// the digest matches `cuegen -json | sha256sum`.
 func TestJsonFlag(t *testing.T) {
 	dir := t.TempDir()
 	writeTestModule(t, dir)
@@ -653,21 +686,20 @@ func TestJsonFlag(t *testing.T) {
 		}
 	}
 
-	// Hash must match piped output.
-	sum := sha1.Sum([]byte(stdout))
-	want := fmt.Sprintf("%x\n", sum)
+	// Digest must match piped output.
+	want := hashOf(stdout) + "\n"
 
-	hashOut, _, he := runCuegen(t, dir, "-json", "-sha1", ".")
+	hashOut, _, he := runCuegen(t, dir, "-json", "-hash", ".")
 	if he != 0 {
 		t.Fatalf("hash exit %d", he)
 	}
 	if hashOut != want {
-		t.Errorf("-json -sha1 = %q, want %q", hashOut, want)
+		t.Errorf("-json -hash = %q, want %q", hashOut, want)
 	}
 }
 
-// TestCmpSha1Json verifies -cmp-sha1 works with -json output.
-func TestCmpSha1Json(t *testing.T) {
+// TestCmpHashJson verifies -cmp-hash works with -json output.
+func TestCmpHashJson(t *testing.T) {
 	dir := t.TempDir()
 	writeTestModule(t, dir)
 
@@ -675,17 +707,91 @@ func TestCmpSha1Json(t *testing.T) {
 	if ne != 0 {
 		t.Fatalf("json render exit %d", ne)
 	}
-	sum := sha1.Sum([]byte(jsonOut))
-	hash := fmt.Sprintf("%x", sum)
+	digest := hashOf(jsonOut)
 
-	_, _, exit := runCuegen(t, dir, "-cmp-sha1", hash, "-json", ".")
+	_, _, exit := runCuegen(t, dir, "-cmp-hash", digest, "-json", ".")
 	if exit != 0 {
 		t.Errorf("expected exit 0 on json match, got %d", exit)
 	}
 
-	_, _, exit = runCuegen(t, dir, "-cmp-sha1", wrongSHA1, "-json", ".")
+	_, _, exit = runCuegen(t, dir, "-cmp-hash", wrongHash, "-json", ".")
 	if exit != 100 {
 		t.Errorf("expected exit 100 on json mismatch, got %d", exit)
+	}
+}
+
+// TestHashCmpHashRoundTrip pipes -hash's actual stdout straight into
+// -cmp-hash, both as the full digest and truncated to a 12-character prefix,
+// verifying the two flags speak the same digest format end to end rather
+// than merely agreeing with a value independently recomputed in the test.
+func TestHashCmpHashRoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	writeTestModule(t, dir)
+
+	hashOut, stderr, exit := runCuegen(t, dir, "-hash", ".")
+	if exit != 0 {
+		t.Fatalf("-hash: exit %d, stderr: %s", exit, stderr)
+	}
+	digest := strings.TrimSpace(hashOut)
+
+	_, _, exit = runCuegen(t, dir, "-cmp-hash", digest, ".")
+	if exit != 0 {
+		t.Errorf("full round-trip: expected exit 0, got %d", exit)
+	}
+
+	shortened := digest[:len("sha256:")+12]
+	_, _, exit = runCuegen(t, dir, "-cmp-hash", shortened, ".")
+	if exit != 0 {
+		t.Errorf("shortened round-trip (%q): expected exit 0, got %d", shortened, exit)
+	}
+}
+
+// TestCmpHashInvalidDigestDoesNotRender verifies that a malformed -cmp-hash
+// argument is rejected before the module is ever rendered: the error must
+// come from digest parsing, not from cuegen.Exec. Proven with a module that
+// would fail to render (a non-concrete field) - if validation happened
+// after rendering, the reported error would be a CUE diagnosis, not the
+// digest-format complaint.
+func TestCmpHashInvalidDigestDoesNotRender(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "cue.mod"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "cue.mod", "module.cue"), []byte(`module: "t.local"
+language: version: "v0.17.0"
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "cuegen.cue"), []byte(`package control
+
+cuegen: { apiVersion: "v2" }
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "export.cue"), []byte(`package control
+
+export: objects: configMap: cm: {
+	apiVersion: "v1"
+	kind:       "ConfigMap"
+	metadata: name: "cm"
+	data: TOKEN: string // non-concrete: would fail to render
+}
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	stdout, stderr, exit := runCuegen(t, dir, "-cmp-hash", "not-a-digest", ".")
+	if exit != 1 {
+		t.Fatalf("expected exit 1, got %d (stderr: %s)", exit, stderr)
+	}
+	if stdout != "" {
+		t.Errorf("stdout should be empty, got %q", stdout)
+	}
+	if !strings.Contains(stderr, "missing an algorithm prefix") {
+		t.Errorf("stderr should report the digest format problem, not a render error, got %q", stderr)
+	}
+	if strings.Contains(stderr, "non-concrete") {
+		t.Errorf("module must not have been rendered before digest validation, stderr: %q", stderr)
 	}
 }
 

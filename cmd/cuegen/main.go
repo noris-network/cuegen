@@ -13,8 +13,6 @@ package main
 
 import (
 	"bytes"
-	"crypto/sha1"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"log"
@@ -31,6 +29,7 @@ import (
 	"cuelang.org/go/cue/token"
 
 	"github.com/noris-network/cuegen/internal/engine"
+	"github.com/noris-network/cuegen/internal/hashing"
 )
 
 const (
@@ -75,8 +74,8 @@ func main() {
 	useJSON := false
 	useWide := false
 	hashOnly := false
-	cmpSHA1 := ""
-	cmpSHA1Set := false
+	cmpHash := ""
+	cmpHashSet := false
 	// v2Flags records every recognized flag verbatim. All of them are
 	// v2-only; runLegacy refuses the fallback when any are present, since
 	// the legacy binary does not understand them (see the guard there).
@@ -91,17 +90,17 @@ func main() {
 			useJSON = true
 		case "-wide":
 			useWide = true
-		case "-sha1":
+		case "-hash":
 			hashOnly = true
-		case "-cmp-sha1":
-			cmpSHA1Set = true
+		case "-cmp-hash":
+			cmpHashSet = true
 			// A dash-prefixed follower is the next flag, not a value: a
-			// valid hash never starts with "-".
+			// valid digest never starts with "-".
 			if i+1 >= len(args) || strings.HasPrefix(args[i+1], "-") {
-				log.Fatalln("-cmp-sha1: missing value (expected a 40-character hex SHA1)")
+				log.Fatalf("-cmp-hash: missing value (expected %s:<hex>)", hashing.DefaultAlgo)
 			}
-			cmpSHA1 = args[i+1]
-			i++ // skip the hash value
+			cmpHash = args[i+1]
+			i++ // skip the digest value
 		default:
 			filtered = append(filtered, arg)
 			continue
@@ -123,24 +122,30 @@ func main() {
 		useWide = useWide || b
 	}
 
-	if cmpSHA1Set && !isValidSHA1(cmpSHA1) {
-		log.Fatalf("-cmp-sha1: %q is not a valid SHA1 hash (expected 40 hex characters)", cmpSHA1)
+	// -cmp-hash's argument is validated before anything is rendered, so a
+	// typo'd digest (exit 1) is clearly distinguishable from a genuine
+	// mismatch (exit 100) - the render only starts once the argument is
+	// known to be well-formed.
+	var cmpDigest hashing.Digest
+	if cmpHashSet {
+		d, err := hashing.Parse(cmpHash)
+		if err != nil {
+			log.Fatalf("-cmp-hash: %v", err)
+		}
+		cmpDigest = d
 	}
-	// isValidSHA1 accepts both cases; canonicalize to lowercase so the
-	// comparison against the %x-formatted (lowercase) digest cannot miss.
-	cmpSHA1 = strings.ToLower(cmpSHA1)
 	if useKYAML && useJSON {
 		log.Fatalln("-kyaml and -json are mutually exclusive")
 	}
-	// -sha1 prints the hash, -cmp-sha1 compares it and only reports via the
-	// exit code - one invocation cannot do both, and silently preferring one
-	// would swallow the other's contract.
-	if hashOnly && cmpSHA1Set {
-		log.Fatalln("-sha1 and -cmp-sha1 are mutually exclusive")
+	// -hash prints the digest, -cmp-hash compares it and only reports via
+	// the exit code - one invocation cannot do both, and silently preferring
+	// one would swallow the other's contract.
+	if hashOnly && cmpHashSet {
+		log.Fatalln("-hash and -cmp-hash are mutually exclusive")
 	}
 
-	// Suppress the version banner for hash-only and cmp-sha1 modes.
-	if !hashOnly && !cmpSHA1Set {
+	// Suppress the version banner for hash-only and cmp-hash modes.
+	if !hashOnly && !cmpHashSet {
 		fmt.Fprintf(os.Stderr, "[INFO] cuegen %s (cue %s)\n", build, cueVersion())
 	}
 
@@ -203,27 +208,36 @@ func main() {
 	}
 	opts := engine.Options{Format: format, WideSeqIndent: useWide, FileFilter: sopsFilter}
 
-	if hashOnly || cmpSHA1Set {
+	if hashOnly || cmpHashSet {
 		var buf bytes.Buffer
 		if err := engine.Exec(path, &buf, opts); err != nil {
 			log.Fatalln(err)
 		}
-		// SHA-1 is used here as a drift checksum, not a security primitive:
-		// the threat model is accidental output change (e.g. a bumped
-		// dependency altering the rendered manifest), not adversarial
-		// collision. SHA-1 is retained for backward compatibility with
-		// existing -cmp-sha1 consumers and CI pipelines; switching to a
-		// stronger hash would break those without adding security value.
-		sum := sha1.Sum(buf.Bytes())
-		computed := fmt.Sprintf("%x", sum)
+		// The digest is used here for cache invalidation and drift
+		// detection, not as a security primitive: the threat model is
+		// accidental output change (e.g. a bumped dependency altering the
+		// rendered manifest), not adversarial collision.
 		if hashOnly {
-			fmt.Println(computed)
+			computed, err := hashing.Compute(hashing.DefaultAlgo, buf.Bytes())
+			if err != nil {
+				log.Fatalln(err)
+			}
+			fmt.Println(hashing.Digest{Algo: hashing.DefaultAlgo, Hex: computed})
 			return
 		}
-		// -cmp-sha1: exit 0 on match, exit 100 on mismatch.
-		if computed == cmpSHA1 {
+		// -cmp-hash: exit 0 on match, exit 100 on mismatch. On a mismatch,
+		// report both digests on stderr - unlike a usage error (exit 1),
+		// this is drift the caller will want to investigate, and the
+		// computed digest is otherwise thrown away.
+		ok, full, err := cmpDigest.Matches(buf.Bytes())
+		if err != nil {
+			log.Fatalln(err)
+		}
+		if ok {
 			os.Exit(0)
 		}
+		gotDigest := hashing.Digest{Algo: cmpDigest.Algo, Hex: full}
+		fmt.Fprintf(os.Stderr, "cuegen: digest mismatch: expected %s, got %s\n", cmpDigest, gotDigest)
 		os.Exit(100)
 	}
 
@@ -241,7 +255,7 @@ func main() {
 // v2Flags lists the v2-only flags found on the command line. The legacy
 // binary does not understand them, and the flag scan has already stripped
 // them from args - silently exec'ing would render with the wrong format or,
-// worst of all, let -cmp-sha1 exit 0 without comparing anything. Refuse the
+// worst of all, let -cmp-hash exit 0 without comparing anything. Refuse the
 // fallback instead of producing misleading output.
 func runLegacy(args, v2Flags []string) {
 	if len(v2Flags) > 0 {
@@ -356,14 +370,6 @@ func stringLit(expr ast.Expr) (string, bool) {
 	return unquoted, true
 }
 
-// isValidSHA1 reports whether s is a 40-character hex string (either case)
-// - the textual representation of a SHA1 digest. SHA-1 is used for drift
-// detection only (see the comment at the sha1.Sum call site).
-func isValidSHA1(s string) bool {
-	b, err := hex.DecodeString(s)
-	return err == nil && len(b) == sha1.Size
-}
-
 // cmpPluginCheck implements the ArgoCD Config Management Plugin detection
 // probe. When invoked as `cuegen -is-cuegen-dir` it prints "true" to stdout
 // if cuegen.cue is present in the CWD, prints nothing otherwise, and in both
@@ -410,21 +416,22 @@ directory containing cuegen.cue; the optional path (default ".") names a value
 to unify into the current module.
 
 Flags:
-  -h               print this usage and exit
-  -kyaml           emit KYAML (flow-style) instead of block YAML
-  -json            emit a JSON object keyed by <kind>/<metadata.name>, mainly
-                   for debugging the generated manifest (e.g. with fx)
-  -wide            indent list items under their parent key (yq-style)
-                   (also enabled by CUEGEN_WIDE=true)
-  -sha1            print only the SHA1 hash of the output
-  -cmp-sha1 <hash> compare output hash to <hash>; exit 0 match, 100 mismatch,
-                   1 on a malformed hash
-  -is-cuegen-dir   ArgoCD probe: print "true" when cuegen.cue is present
+  -h                  print this usage and exit
+  -kyaml              emit KYAML (flow-style) instead of block YAML
+  -json               emit a JSON object keyed by <kind>/<metadata.name>,
+                      mainly for debugging the generated manifest (e.g. with fx)
+  -wide               indent list items under their parent key (yq-style)
+                      (also enabled by CUEGEN_WIDE=true)
+  -hash               print only the output digest, as "sha256:<hex>"
+  -cmp-hash <digest>  compare output digest to <digest> (algo:hex, or an
+                      algo:<12+ hex chars> prefix); exit 0 match, 100
+                      mismatch, 1 on a malformed digest
+  -is-cuegen-dir      ArgoCD probe: print "true" when cuegen.cue is present
 
 Well-known arguments (replace the path, take no flags):
-  version          print version and exit (alias: -version)
+  version             print version and exit (alias: -version)
 
--kyaml/-json and -sha1/-cmp-sha1 are mutually exclusive. All flags except
+-kyaml/-json and -hash/-cmp-hash are mutually exclusive. All flags except
 -is-cuegen-dir require a v2 module; older modules fall back to cuegen_v0.16.8.
 `)
 }

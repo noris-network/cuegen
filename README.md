@@ -67,11 +67,11 @@ cuegen -json .
 cuegen -wide .
 # or via env var (e.g. for ArgoCD CMP where CLI flags aren't easily passed):
 CUEGEN_WIDE=true cuegen .
-# print only the SHA1 hash of the output (no banner, no YAML):
-cuegen -sha1 .
-# compare the output hash against a known value (40 hex chars):
-#   exit 0 on match, exit 100 on mismatch, exit 1 on a malformed hash
-cuegen -cmp-sha1 <hash> .
+# print only the digest of the output, as "sha256:<hex>" (no banner, no YAML):
+cuegen -hash .
+# compare the output digest against a known value:
+#   exit 0 on match, exit 100 on mismatch, exit 1 on a malformed digest
+cuegen -cmp-hash <algo:hex> .
 ```
 
 ### CLI flags
@@ -81,20 +81,20 @@ cuegen -cmp-sha1 <hash> .
 | (none)                               | Renders the module as block YAML to stdout                                                                                                                                                                |
 | `-kyaml`                             | Renders as KYAML (flow-style) instead of block YAML                                                                                                                                                       |
 | `-json`                              | Renders as a JSON object keyed by `<kind>/<name>` (deliberately without namespace). Suitable for `fx`/`jq`                                                                                                |
-| `-sha1`                              | Prints only the SHA1 hash of the output (hex, with newline). Identical to `cuegen . \| sha1sum`. Suppresses the version banner                                                                            |
-| `-cmp-sha1 <hash>`                   | Compares the output hash against `<hash>` (40 hex characters, case-insensitive). Exit 0 on match, exit 100 on mismatch, exit 1 on an invalid hash format. No stdout output. Suppresses the version banner |
+| `-hash`                              | Prints only the digest of the output, as `sha256:<hex>` (with newline). Suppresses the version banner                                                                                                    |
+| `-cmp-hash <algo:hex>`               | Compares the output digest against `<algo:hex>` (or an `algo:<12+ hex chars>` prefix), case-insensitive. Exit 0 on match, exit 100 on mismatch (expected/actual digest on stderr), exit 1 on a malformed digest. No stdout output. Suppresses the version banner |
 | `-is-cuegen-dir`                     | ArgoCD CMP detection: prints `true` if `cuegen.cue` exists, nothing otherwise. Exit 0. Suppresses the version banner                                                                                      |
 | `version` / `-version` / `--version` | Prints version, CUE version, and platform. No banner, no module required                                                                                                                                  |
 
 All flags can be placed before or after the path and combined (e.g.
-`cuegen -json -sha1 .`) - with two exceptions: `-kyaml`/`-json` and
-`-sha1`/`-cmp-sha1` are each mutually exclusive (exit 1 with an error
+`cuegen -json -hash .`) - with two exceptions: `-kyaml`/`-json` and
+`-hash`/`-cmp-hash` are each mutually exclusive (exit 1 with an error
 message).
 
-`-kyaml`, `-json`, `-sha1`, and `-cmp-sha1` are v2-only: if the module
+`-kyaml`, `-json`, `-hash`, and `-cmp-hash` are v2-only: if the module
 falls back to the legacy binary, cuegen aborts with exit 1 and an error
 message instead of silently dropping the flags - in particular,
-`-cmp-sha1` must never exit 0 ("match") without having actually compared
+`-cmp-hash` must never exit 0 ("match") without having actually compared
 anything.
 
 v2 modules accept at most one positional argument (the module path).
@@ -212,44 +212,67 @@ Internal reader annotations (`config.kubernetes.io/index`,
 `config.kubernetes.io/path`, etc.) do not appear in the output.
 `yaml.Parse` never sets such annotations, so there is nothing to strip.
 
-## Drift detection (`-sha1`, `-cmp-sha1`)
+## Drift detection (`-hash`, `-cmp-hash`)
 
-The `-sha1` and `-cmp-sha1` flags enable hash-based comparison of the
-rendered output, e.g. for CI pipelines or cache invalidation.
+The `-hash` and `-cmp-hash` flags enable digest-based comparison of the
+rendered output, e.g. for CI pipelines or cache invalidation. This is
+explicitly **not a security feature** - the threat model is accidental
+output change (a bumped dependency altering the rendered manifest), not an
+adversary constructing a collision. SHA-1 would still be mathematically
+adequate for that threat model, but the digest carries its algorithm as a
+prefix (`sha256:<hex>`) rather than in the flag name (`-sha1`), so a future
+algorithm change is a registry entry in `internal/hashing`, not a breaking
+CLI rename.
 
-The SHA1 hash is computed over the raw output bytes - the same bytes
+The digest is computed over the raw output bytes - the same bytes
 `cuegen .` would write to stdout. The computation happens in-process: the
-output is routed into a `bytes.Buffer` instead of stdout, then `sha1.Sum`
-is applied to it.
+output is routed into a `bytes.Buffer` instead of stdout, then hashed.
 
 ```
-cuegen -sha1 .          → 27b8b40e6fd5ef278dbf9dec1a82c956242ecc34
-cuegen . | sha1sum      → 27b8b40e6fd5ef278dbf9dec1a82c956242ecc34  -
+cuegen -hash .                → sha256:5a83a6c36a52dec6fce78bbddbac70a0923f50f6661f28869fb154b421bea0c9
+cuegen . | sha256sum          → 5a83a6c36a52dec6fce78bbddbac70a0923f50f6661f28869fb154b421bea0c9  -
 ```
 
-`-cmp-sha1` also renders into the buffer, but compares instead of
-printing: exit 0 on match, exit 100 on mismatch.
+`-cmp-hash` also renders into the buffer, but compares instead of
+printing: exit 0 on match, exit 100 on mismatch. On a mismatch, both
+digests are reported on stderr, so a CI job can see what the module
+actually rendered to without a separate `-hash` run:
 
-The hash argument is validated before rendering: anything other than a
-40-character hex string → usage error (exit 1 with an error message on
-stderr). This clearly distinguishes a typo'd hash from a genuine
-mismatch (exit 100). Uppercase hex is accepted and normalized to
-lowercase before comparison, since `%x` formats the computed hash in
-lowercase.
+```
+cuegen: digest mismatch: expected sha256:deadbeef..., got sha256:5a83a6c3...
+```
 
-Both flags combine with `-kyaml` - the hash then refers to the KYAML
+The digest argument is validated before rendering, so a typo'd digest
+(exit 1) is clearly distinguishable from a genuine mismatch (exit 100):
+
+| Input                          | Result                                   |
+| ------------------------------- | ----------------------------------------- |
+| `sha256:<64 hex>`               | Full comparison                           |
+| `sha256:<n hex>`, n ≥ 12        | Prefix comparison                         |
+| Anything without an `algo:` prefix | Error, exit 1                          |
+| `<unknown>:<hex>`               | Error, exit 1 (names the supported algorithms) |
+
+Uppercase hex is accepted and normalized to lowercase before comparison.
+The prefix form mirrors how Git and Docker handle shortened hashes/digests:
+64 hex characters are unwieldy in a CI config, but full hex is always
+computed internally - only the comparison is shortened, and unlike Git
+there is no ambiguity, since the comparison is against exactly one computed
+digest, not an object set.
+
+Both flags combine with `-kyaml` - the digest then refers to the KYAML
 output.
 
 ### Stability guarantee
 
-For unchanged CUE input, the hash is guaranteed stable across patch releases
-of cuegen only. A CI pipeline or cache that pins a hash today can rely on it
-still matching after a patch upgrade, but a minor or major version bump may
-change canonical formatting (field order, scalar quoting, etc.), a CUE or
-kyaml dependency bump, or other output-affecting change - and therefore the
-hash - and would call that out explicitly in the release notes.
-`TestHashStabilityAcrossPatchReleases` in `cmd/cuegen/cli_flags_test.go`
-pins the hash of `examples/minimal` as a regression guard for this contract.
+For unchanged CUE input, the digest is guaranteed stable across patch
+releases of cuegen only. A CI pipeline or cache that pins a digest today can
+rely on it still matching after a patch upgrade, but a minor or major
+version bump may change canonical formatting (field order, scalar quoting,
+etc.), a CUE or kyaml dependency bump, or other output-affecting change -
+and therefore the digest - and would call that out explicitly in the
+release notes. `TestHashStabilityAcrossPatchReleases` in
+`cmd/cuegen/cli_flags_test.go` pins the digest of `examples/minimal` as a
+regression guard for this contract.
 
 ## Concreteness check before encoding
 
@@ -444,25 +467,25 @@ to the legacy-fallback branch.
 
 ### Flag processing
 
-The `-sha1`, `-cmp-sha1`, and `-is-cuegen-dir` flags are recognized early,
+The `-hash`, `-cmp-hash`, and `-is-cuegen-dir` flags are recognized early,
 before the version banner is printed. These flags must produce no
 diagnostic output.
 
-`-kyaml`, `-sha1`, and `-cmp-sha1 <hash>` are filtered out of the argument
+`-kyaml`, `-hash`, and `-cmp-hash <digest>` are filtered out of the argument
 list so the remaining path is recognized correctly. All flags are
 position-independent. Every recognized flag is additionally recorded in
 `v2Flags`; `runLegacy` checks this list before the `execve`: if it is
 non-empty, the legacy fallback is refused with exit 1, since the legacy
 binary does not understand the flags and they have already been stripped
 from `args` - a silent fallback would render in the wrong format, or, for
-`-cmp-sha1`, fake a hash match with exit 0.
+`-cmp-hash`, fake a digest match with exit 0.
 
 Once the module is confirmed to be v2, the remaining arguments are
 strictly validated: arguments with a `-` prefix are unknown flags (exit 1,
 `unknown flag`), more than one positional argument is an error (exit 1,
 `too many arguments`). This validation deliberately sits after apiVersion
 detection, so the legacy path can forward arguments verbatim. A
-`-cmp-sha1` without a value (at the end, or followed by another flag)
+`-cmp-hash` without a value (at the end, or followed by another flag)
 reports `missing value`.
 
 ## Tests
@@ -474,16 +497,18 @@ since `main()` uses `os.Exit`):
 
 | Test                                     | Verifies                                                                                                                             |
 | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `TestSha1Flag`                           | `-sha1` prints only the SHA1 hex digest, no banner, identical to `cuegen \| sha1sum`                                                 |
-| `TestSha1KyamlFlag`                      | `-sha1 -kyaml` combined, hash matches the KYAML output                                                                               |
-| `TestCmpSha1Match`                       | `-cmp-sha1 <hash>` → exit 0 on match (including an uppercase hash), no output                                                        |
-| `TestCmpSha1Mismatch`                    | `-cmp-sha1` with a valid but wrong hash → exit 100, no output                                                                        |
-| `TestCmpSha1InvalidHash`                 | `-cmp-sha1` with an invalid hash (`deadbeef`, `wrong`, empty) → exit 1; missing value → `missing value`                              |
-| `TestCmpSha1Kyaml`                       | `-cmp-sha1` with `-kyaml`: match → 0, mismatch → 100                                                                                 |
-| `TestHashStabilityAcrossPatchReleases`   | Pins `-sha1` of `examples/minimal` (YAML/KYAML/JSON) to fixed hashes - regression guard for the patch-release stability guarantee |
-| `TestCmpSha1Json`                        | `-cmp-sha1` with `-json`: match → 0, mismatch → 100                                                                                  |
-| `TestJsonFlag`                           | `-json` produces a valid JSON object with `<kind>/<name>` keys, correct count, consistent hash                                       |
-| `TestMutuallyExclusiveFlags`             | `-sha1`+`-cmp-sha1` (both orders) and `-kyaml`+`-json` → exit 1, "mutually exclusive" on stderr                                      |
+| `TestHashFlag`                           | `-hash` prints only the `sha256:<hex>` digest, no banner                                                                             |
+| `TestHashKyamlFlag`                      | `-hash -kyaml` combined, digest matches the KYAML output                                                                             |
+| `TestCmpHashMatch`                       | `-cmp-hash <algo:hex>` → exit 0 on full match, uppercase match, and a 12-char prefix match; no output                                |
+| `TestCmpHashMismatch`                    | `-cmp-hash` with a valid but wrong digest → exit 100, no stdout, stderr reports both the expected and actual digest                  |
+| `TestCmpHashInvalid`                     | `-cmp-hash` with a malformed digest (no prefix, unknown algo, empty/non-hex/too-short hex) → exit 1 naming the problem; missing value → `missing value` |
+| `TestCmpHashKyaml`                       | `-cmp-hash` with `-kyaml`: match → 0, mismatch → 100                                                                                  |
+| `TestHashStabilityAcrossPatchReleases`   | Pins `-hash` of `examples/minimal` (YAML/KYAML/JSON) to fixed digests - regression guard for the patch-release stability guarantee   |
+| `TestCmpHashJson`                        | `-cmp-hash` with `-json`: match → 0, mismatch → 100                                                                                   |
+| `TestHashCmpHashRoundTrip`               | `-hash`'s actual stdout, both full and truncated to a 12-char prefix, fed straight into `-cmp-hash` → exit 0                          |
+| `TestCmpHashInvalidDigestDoesNotRender`  | A malformed `-cmp-hash` argument is rejected before rendering - proven with a module that would fail to render, whose CUE error never appears |
+| `TestJsonFlag`                           | `-json` produces a valid JSON object with `<kind>/<name>` keys, correct count, consistent digest                                     |
+| `TestMutuallyExclusiveFlags`             | `-hash`+`-cmp-hash` (both orders) and `-kyaml`+`-json` → exit 1, "mutually exclusive" on stderr                                       |
 | `TestLegacyFallbackRejectsV2Flags`       | v2 flags + legacy module → exit 1, error names the flag and the v2 requirement                                                       |
 | `TestMissingCuegenCueIsHardError`        | No `cuegen.cue` in the CWD → exit 1, no legacy fallback attempted (with or without flags)                                            |
 | `TestLegacyFallbackWithoutFlags`         | A flag-free invocation still execs the legacy binary, args unchanged                                                                 |
@@ -517,6 +542,22 @@ Tests the engine directly (in-process):
 Determinism is also exercised at the `go test` level: run with `-count=10
 -race` to repeat every test ten times under the race detector, catching both
 flaky iteration order and data races that a single run would miss.
+
+### `internal/hashing/hashing_test.go`
+
+Tests the `-hash`/`-cmp-hash` digest parsing and comparison logic directly
+(no rendering, no subprocess):
+
+| Test                                        | Verifies                                                                                     |
+| -------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `TestParseValid`                             | Full digest, uppercase normalization, and 12-char (minimum) prefix all parse                    |
+| `TestParseInvalid`                           | Bare hex, unknown algorithm, empty hex, non-hex characters, sub-minimum prefix, oversized hex all error |
+| `TestParseUnknownAlgorithmListsSupported`    | An unknown algorithm's error names the supported algorithms                                     |
+| `TestParseMissingPrefixNamesExpectedForm`    | A bare-hex digest's error names the expected `algo:hex` form                                    |
+| `TestMatchesFull`                            | Full-digest comparison matches identical data and rejects different data                        |
+| `TestMatchesPrefix`                          | Prefix comparison matches on a shared prefix and rejects a differing one                         |
+| `TestComputeUnsupportedAlgo`                 | `Compute` on an unregistered algorithm errors                                                    |
+| `TestDigestString`                           | `Digest.String()` reproduces the canonical `algo:hex` form                                       |
 
 ## Examples
 
