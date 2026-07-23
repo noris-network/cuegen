@@ -80,7 +80,7 @@ cuegen -cmp-hash <algo:hex> .
 | ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | (none)                               | Renders the module as block YAML to stdout                                                                                                                                                                |
 | `-kyaml`                             | Renders as KYAML (flow-style) instead of block YAML                                                                                                                                                       |
-| `-json`                              | Renders as a JSON object keyed by `<kind>/<name>` (deliberately without namespace). Suitable for `fx`/`jq`                                                                                                |
+| `-json`                              | Renders as a JSON object keyed by `<kind>/<name>` (deliberately without namespace). Suitable for `fx`/`yq`/`jq`                                                                                                |
 | `-hash`                              | Prints only the digest of the output, as `sha256:<hex>` (with newline). Suppresses the version banner                                                                                                    |
 | `-cmp-hash <algo:hex>`               | Compares the output digest against `<algo:hex>` (or an `algo:<12+ hex chars>` prefix), case-insensitive. Exit 0 on match, exit 100 on mismatch (expected/actual digest on stderr), exit 1 on a malformed digest. No stdout output. Suppresses the version banner |
 | `-is-cuegen-dir`                     | ArgoCD CMP detection: prints `true` if `cuegen.cue` exists, nothing otherwise. Exit 0. Suppresses the version banner                                                                                      |
@@ -440,7 +440,7 @@ func (sortByKindName) Filter(nodes []*yaml.RNode) ([]*yaml.RNode, error) {
   kind and name (even in different namespaces) are therefore a hard
   duplicate-key error, even though the same module renders fine as
   YAML/KYAML (where the namespace does disambiguate). `-json` is a
-  debugging aid - piping into `fx`/`jq` - not a format every module is
+  debugging aid - piping into `fx`/`yq`/`jq` - not a format every module is
   expected to support, and the error message says so. The canonical field
   ordering from `FormatFilter` is preserved, since `MarshalJSON` carries
   over the node tree's field order.
