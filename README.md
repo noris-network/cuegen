@@ -89,7 +89,7 @@ cuegen -cmp-hash <algo:hex> .
 | `-hash`                              | Prints only the digest of the output, as `sha256:<hex>` (with newline)                                                                                                                                    |
 | `-cmp-hash <algo:hex>`               | Compares the output digest against `<algo:hex>` (or an `algo:<12+ hex chars>` prefix), case-insensitive. Exit 0 on match, exit 100 on mismatch (expected/actual digest on stderr), exit 1 on a malformed digest. No stdout output |
 | `-is-cuegen-dir`                     | ArgoCD CMP detection: prints `true` if `cuegen.cue` exists, nothing otherwise. Exit 0                                                                                                                     |
-| `version` / `-version` / `--version` | Prints version, CUE version, and platform. No module required                                                                                                                                             |
+| `-version`                           | Prints version, CUE version, and platform. No module required                                                                                                                                             |
 
 Flags can be placed before or after the path and combined (e.g.
 `cuegen -json -hash .`), with two exceptions: `-kyaml`/`-json` and
