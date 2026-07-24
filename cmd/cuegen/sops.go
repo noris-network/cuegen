@@ -40,13 +40,15 @@ func sopsFilter(path string, raw []byte) ([]byte, error) {
 	if err != nil {
 		// A false positive whose error indicates the input isn't a genuine
 		// sops file is passed through: the typed MetadataNotFound sentinel,
-		// or an untyped parse error from a sops store (matched on the
-		// "unmarshal" stem so both "unmarshalling" and the YAML store's
-		// "unmarshaling" spelling are covered). Everything else - including
-		// sops.MacMismatch and a missing data key - is a real sops file that
-		// could not be decrypted, and must fail hard.
+		// an untyped parse error from a sops store (matched on the "unmarshal"
+		// stem so both "unmarshalling" and the YAML store's "unmarshaling"
+		// spelling are covered), or a structurally invalid metadata block
+		// (the "sops" marker parsed, but not as a proper mapping). Everything
+		// else - including sops.MacMismatch and a missing data key - is a real
+		// sops file that could not be decrypted, and must fail hard.
 		if errors.Is(err, sops.MetadataNotFound) ||
-			isUnmarshalError(err) {
+			isUnmarshalError(err) ||
+			isMalformedMetadataError(err) {
 			log.Printf("sops decrypt %s: %v; passing through", path, err)
 			return raw, nil
 		}
@@ -64,6 +66,22 @@ func sopsFilter(path string, raw []byte) ([]byte, error) {
 // ("unmarshaling") spellings the YAML store emits across its code paths.
 func isUnmarshalError(err error) bool {
 	return strings.Contains(strings.ToLower(err.Error()), "unmarshal")
+}
+
+// isMalformedMetadataError reports whether err indicates the file's "sops"
+// marker parsed but is not a genuine metadata block. Since sops v3.13 the
+// JSON/YAML stores accept such input (e.g. `{"sops":"mentioned",...}`, where
+// "sops" is a scalar rather than the metadata mapping) and only reject it
+// later in metadata extraction, with untyped fmt.Errorf messages: "Found sops
+// entry that is not a mapping" and "Found duplicate sops entry". A genuine
+// sops file always carries "sops" as a single mapping, so both signal a
+// heuristic false positive - pass the bytes through rather than fail hard.
+// There is no typed sentinel to match against, so the message stems ("not a
+// mapping", "duplicate ... entry") are the only available signal.
+func isMalformedMetadataError(err error) bool {
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "entry that is not a mapping") ||
+		strings.Contains(msg, "duplicate sops entry")
 }
 
 // sopsFormat maps a file path to the format string the sops decrypt package
