@@ -114,7 +114,7 @@ func runCuegen(t *testing.T, dir string, args ...string) (string, string, int) {
 }
 
 // TestHashFlag verifies that -hash prints only the "sha256:<hex>" digest of
-// the output, with no version banner on stderr.
+// the output, with nothing on stderr.
 func TestHashFlag(t *testing.T) {
 	dir := t.TempDir()
 	writeTestModule(t, dir)
@@ -329,9 +329,9 @@ func TestHashStabilityAcrossPatchReleases(t *testing.T) {
 	}
 }
 
-// TestIsCuegenDirSuppressesBanner verifies the ArgoCD detection probe
-// produces no version banner.
-func TestIsCuegenDirSuppressesBanner(t *testing.T) {
+// TestIsCuegenDirProducesNoStderr verifies the ArgoCD detection probe
+// produces no diagnostic output.
+func TestIsCuegenDirProducesNoStderr(t *testing.T) {
 	dir := t.TempDir()
 	writeTestModule(t, dir)
 
@@ -347,9 +347,11 @@ func TestIsCuegenDirSuppressesBanner(t *testing.T) {
 	}
 }
 
-// TestNormalRenderShowsBanner verifies the version banner appears on a
-// normal render (no suppression flags).
-func TestNormalRenderShowsBanner(t *testing.T) {
+// TestNormalRenderProducesNoStderr verifies a normal render (no flags) is
+// silent on stderr - cuegen used to print a "[INFO] cuegen <version> (cue
+// <version>)" banner on every invocation; it was removed as noise for a tool
+// meant to run non-interactively (e.g. under ArgoCD).
+func TestNormalRenderProducesNoStderr(t *testing.T) {
 	dir := t.TempDir()
 	writeTestModule(t, dir)
 
@@ -357,8 +359,8 @@ func TestNormalRenderShowsBanner(t *testing.T) {
 	if exit != 0 {
 		t.Fatalf("exit %d, stderr: %s", exit, stderr)
 	}
-	if !strings.Contains(stderr, "[INFO]") {
-		t.Errorf("stderr should contain [INFO] banner, got %q", stderr)
+	if stderr != "" {
+		t.Errorf("stderr should be empty, got %q", stderr)
 	}
 }
 

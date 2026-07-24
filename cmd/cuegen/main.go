@@ -46,7 +46,7 @@ const (
 var build = "dev"
 
 func main() {
-	// Handle "version" before anything else - no banner, no module needed.
+	// Handle "version" before anything else - no module needed.
 	if len(os.Args) == 2 {
 		switch os.Args[1] {
 		case "version", "-version":
@@ -63,7 +63,7 @@ func main() {
 	log.SetFlags(0)
 	log.SetPrefix("cuegen: ")
 
-	// argocd cmp check - must run before the version banner so the
+	// argocd cmp check - must run before any other output so the
 	// detection probe produces no diagnostic output.
 	cmpPluginCheck()
 
@@ -142,11 +142,6 @@ func main() {
 	// one would swallow the other's contract.
 	if hashOnly && cmpHashSet {
 		log.Fatalln("-hash and -cmp-hash are mutually exclusive")
-	}
-
-	// Suppress the version banner for hash-only and cmp-hash modes.
-	if !hashOnly && !cmpHashSet {
-		fmt.Fprintf(os.Stderr, "[INFO] cuegen %s (cue %s)\n", build, cueVersion())
 	}
 
 	// cuegen.cue is always read from the process's current working
@@ -373,9 +368,9 @@ func stringLit(expr ast.Expr) (string, bool) {
 // cmpPluginCheck implements the ArgoCD Config Management Plugin detection
 // probe. When invoked as `cuegen -is-cuegen-dir` it prints "true" to stdout
 // if cuegen.cue is present in the CWD, prints nothing otherwise, and in both
-// cases exits 0. The probe must produce no other output (no version banner,
-// no diagnostics) so ArgoCD's sidecar can decide ownership cleanly. Any other
-// invocation is a no-op and falls through to normal processing.
+// cases exits 0. The probe must produce no other output (no diagnostics) so
+// ArgoCD's sidecar can decide ownership cleanly. Any other invocation is a
+// no-op and falls through to normal processing.
 func cmpPluginCheck() {
 	if len(os.Args) != 2 || os.Args[1] != "-is-cuegen-dir" {
 		return
