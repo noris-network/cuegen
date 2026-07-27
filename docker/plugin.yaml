@@ -3,7 +3,6 @@ kind: ConfigManagementPlugin
 metadata:
   name: cuegen
 spec:
-  version: VERSION
   generate:
     command: ["/bin/cuegen", "."]
   discover:
