@@ -563,6 +563,34 @@ func TestMissingCuegenCueIsHardError(t *testing.T) {
 	}
 }
 
+// TestAbsentAPIVersionFallsBackSilently verifies that a cuegen.cue carrying
+// no apiVersion field (a pre-versioning module) falls back to the legacy
+// binary WITHOUT emitting an "[INFO] read apiVersion" diagnostic - absent
+// apiVersion is a normal legacy module, not a fault. Compare
+// TestMissingCuegenCueIsHardError, which covers a wholly absent cuegen.cue.
+func TestAbsentAPIVersionFallsBackSilently(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "cuegen.cue"), []byte(`package control
+
+cuegen: {
+	spec: export: "export.objects"
+}
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	stdout, stderr := runWithFakeLegacy(t, dir, ".")
+	if want := "legacy called with: .\n"; stdout != want {
+		t.Errorf("stdout = %q, want %q", stdout, want)
+	}
+	if !strings.Contains(stderr, "fallback to cuegen_v0.16.8") {
+		t.Errorf("stderr should announce the fallback, got %q", stderr)
+	}
+	if strings.Contains(stderr, "read apiVersion") {
+		t.Errorf("absent apiVersion must not log a read-apiVersion diagnostic, stderr: %q", stderr)
+	}
+}
+
 // writeLegacyModule lays out a cuegen.cue whose apiVersion selects the
 // legacy fallback. No cue.mod is needed: the legacy paths never render.
 func writeLegacyModule(t *testing.T, dir string) {

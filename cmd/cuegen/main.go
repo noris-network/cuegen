@@ -2,9 +2,10 @@
 // "---"-separated YAML stream, behaving like `cue cmd exp`. cuegen.cue must
 // exist in the current directory - its absence is a hard error, not a
 // legacy fallback, since a directory without it isn't a cuegen module at
-// all. Modules whose cuegen.cue exists but carries an older or missing
+// all. Modules whose cuegen.cue exists but carries an older or absent
 // cuegen.apiVersion are delegated to the legacy cuegen_v0.16.8 binary via
-// execve.
+// execve; an apiVersion that is present but malformed (non-string or empty)
+// is a hard error instead.
 //
 // cuegen is Unix-only: the legacy fallback uses syscall.Exec and the overlay
 // walker relies on inode metadata, neither of which is available on Windows.
@@ -159,15 +160,18 @@ func main() {
 		log.Fatalf("%s: no such file (cuegen must be run from a module directory)", cuegenCue)
 	}
 	if err != nil {
-		// cuegen.cue exists but could not be parsed or has no apiVersion
-		// field (a genuinely old-style file predating apiVersion): defer to
-		// the legacy binary for backward compat.
-		fmt.Fprintf(os.Stderr, "[INFO] read apiVersion: %v\n", err)
-		runLegacy(args, v2Flags)
-		return
+		// cuegen.cue exists but is unparseable, or carries an apiVersion
+		// that is malformed (non-string or empty). These are genuine faults,
+		// not a legacy module, so abort rather than mask them with a fallback.
+		// A pre-versioning module simply omits the field - handled below.
+		log.Fatalf("%v", err)
 	}
 
-	if !isV2(apiVersion) {
+	// An absent apiVersion (a pre-versioning legacy module) yields "". Any
+	// value that isn't a v2 generation - including "" and older v1*/v0*
+	// strings - is delegated to the legacy binary. This is a normal fallback,
+	// not an error, so it stays silent apart from runLegacy's own announcement.
+	if apiVersion == "" || !isV2(apiVersion) {
 		runLegacy(args, v2Flags)
 		return
 	}
@@ -308,6 +312,11 @@ func majorVersion(s string) (int, bool) {
 //
 //	cuegen: { apiVersion: "v2" }    // struct literal
 //	cuegen: apiVersion: "v2"        // chained label shorthand
+//
+// A missing apiVersion field is not an error: it denotes a pre-versioning
+// module, and the caller falls back to the legacy binary. A field that is
+// present but malformed - non-string or empty - is a genuine fault and
+// returns an error. Read/parse failures likewise return an error.
 func readAPIVersion(file string) (string, error) {
 	src, err := os.ReadFile(file)
 	if err != nil {
@@ -325,21 +334,35 @@ func readAPIVersion(file string) (string, error) {
 		if label, _, _ := ast.LabelName(fd.Label); label != "cuegen" {
 			continue
 		}
-		if lit, ok := findAPIVersion(fd.Value); ok {
-			return lit, nil
+		valExpr, present := findAPIVersionField(fd.Value)
+		if !present {
+			// cuegen exists but has no apiVersion: a pre-versioning module.
+			// Signal "absent" to the caller via the empty string, no error.
+			return "", nil
 		}
+		lit, ok := stringLit(valExpr)
+		if !ok {
+			return "", fmt.Errorf("%s: cuegen.apiVersion must be a string literal", file)
+		}
+		if lit == "" {
+			return "", fmt.Errorf("%s: cuegen.apiVersion must not be empty", file)
+		}
+		return lit, nil
 	}
-	return "", fmt.Errorf("%s: cuegen.apiVersion not found", file)
+	// No cuegen field at all: treat as pre-versioning, like an absent field.
+	return "", nil
 }
 
-// findAPIVersion descends one level into a struct literal looking for the
-// `apiVersion: "..."` field. Both `cuegen: { apiVersion: "x" }` and the
-// chained shorthand `cuegen: apiVersion: "x"` parse to a StructLit whose
-// only Elt is the apiVersion field, so a single case covers both.
-func findAPIVersion(expr ast.Expr) (string, bool) {
+// findAPIVersionField descends one level into a struct literal looking for
+// the `apiVersion` field and returns its value expression plus whether the
+// field was present. Both `cuegen: { apiVersion: "x" }` and the chained
+// shorthand `cuegen: apiVersion: "x"` parse to a StructLit whose only Elt
+// is the apiVersion field, so a single case covers both. Validation of the
+// value (string-ness, emptiness) is left to the caller.
+func findAPIVersionField(expr ast.Expr) (ast.Expr, bool) {
 	s, ok := expr.(*ast.StructLit)
 	if !ok {
-		return "", false
+		return nil, false
 	}
 	for _, e := range s.Elts {
 		fd, ok := e.(*ast.Field)
@@ -347,10 +370,10 @@ func findAPIVersion(expr ast.Expr) (string, bool) {
 			continue
 		}
 		if label, _, _ := ast.LabelName(fd.Label); label == "apiVersion" {
-			return stringLit(fd.Value)
+			return fd.Value, true
 		}
 	}
-	return "", false
+	return nil, false
 }
 
 func stringLit(expr ast.Expr) (string, bool) {

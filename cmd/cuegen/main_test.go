@@ -54,6 +54,9 @@ func TestIsV2(t *testing.T) {
 // readAPIVersion must extract the literal from cuegen.cue without evaluating
 // CUE, so unresolved imports in sibling fields do not block the parse. Both
 // the nested struct-literal and the chained-label shorthand forms are valid.
+// A missing apiVersion (or no cuegen field at all) is treated as a
+// pre-versioning module and returns ("", nil) so the caller falls back to
+// the legacy binary; a present-but-non-string or empty value is an error.
 func TestReadAPIVersion(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -92,12 +95,26 @@ cuegen: {
 			want: "v2",
 		},
 		{
+			// Pre-versioning module: cuegen exists but has no apiVersion.
+			// Absent is not an error - the caller defers to the legacy binary.
+			name: "no apiVersion field",
+			src: `package control
+
+cuegen: {
+	spec: export: "export.objects"
+}
+`,
+			want: "",
+		},
+		{
+			// No cuegen field at all: same as an absent apiVersion, since
+			// nothing here distinguishes it from a pre-versioning module.
 			name: "no cuegen field",
 			src: `package control
 
 foo: "bar"
 `,
-			wantErr: true,
+			want: "",
 		},
 		{
 			name: "apiVersion not a string",
@@ -108,10 +125,18 @@ cuegen: { apiVersion: 42 }
 			wantErr: true,
 		},
 		{
+			name: "apiVersion empty string",
+			src: `package control
+
+cuegen: { apiVersion: "" }
+`,
+			wantErr: true,
+		},
+		{
 			name: "empty file",
 			src: `package control
 `,
-			wantErr: true,
+			want: "",
 		},
 	}
 	for _, tc := range tests {
