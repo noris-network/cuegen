@@ -883,7 +883,7 @@ func TestWideEnvVar(t *testing.T) {
 	if ce != 0 {
 		t.Fatalf("CUEGEN_WIDE=false render exit %d", ce)
 	}
-	for _, line := range strings.Split(envCompact, "\n") {
+	for line := range strings.SplitSeq(envCompact, "\n") {
 		if strings.HasPrefix(line, "    - name: app") {
 			t.Fatalf("CUEGEN_WIDE=false should produce compact output:\n%s", envCompact)
 		}
