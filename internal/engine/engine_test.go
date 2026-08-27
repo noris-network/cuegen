@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"syscall"
 	"testing"
@@ -863,7 +864,7 @@ func TestOverlayVisitCap(t *testing.T) {
 	t.Cleanup(func() { maxOverlayVisits = origMax })
 
 	// Create 20 directories, each with a file - enough to exceed 10 visits.
-	for i := 0; i < 20; i++ {
+	for i := range 20 {
 		sub := filepath.Join(dir, fmt.Sprintf("d%d", i))
 		if err := os.MkdirAll(sub, 0o755); err != nil {
 			t.Fatal(err)
@@ -1179,23 +1180,12 @@ export: objects: configMap: cm: {
 	lines := strings.Split(out.String(), "\n")
 	keyLine := `  "ConfigMap/cm": {`
 	firstProp := `    "apiVersion": "v1",`
-	if !slicesContains(lines, keyLine) {
+	if !slices.Contains(lines, keyLine) {
 		t.Errorf("missing key line %q (wrong key-column indent?)\n%s", keyLine, out.String())
 	}
-	if !slicesContains(lines, firstProp) {
+	if !slices.Contains(lines, firstProp) {
 		t.Errorf("missing inner property %q (wrong object-body indent?)\n%s", firstProp, out.String())
 	}
-}
-
-// slicesContains reports whether ss contains s, a tiny local helper so the
-// test avoids importing slices solely for a membership check.
-func slicesContains(ss []string, s string) bool {
-	for _, v := range ss {
-		if v == s {
-			return true
-		}
-	}
-	return false
 }
 
 // TestExamplesRenderDeterministically renders each runnable module under
