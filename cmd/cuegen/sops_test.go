@@ -271,6 +271,103 @@ func TestSopsFilterHardFailureOnWrongKey(t *testing.T) {
 	})
 }
 
+// TestSopsFilterHardFailureOnCorruptedCiphertext covers the integrity-failure
+// path: a genuine sops file whose ciphertext has been corrupted (a flipped
+// bit, e.g. in transit or on disk) must fail HARD, not pass the damaged bytes
+// through to the CUE compiler. This is distinct from the wrong-key path
+// (TestSopsFilterHardFailureOnWrongKey): the key is correct, but the data's
+// AEAD authentication tag no longer validates - the sops store reports
+// "cipher: message authentication failed". Crucially, that error is NOT one
+// of the three soft-passthrough classifiers (MetadataNotFound / unmarshal /
+// malformed-metadata), so sopsFilter must surface it as a hard error. Were a
+// future change to broaden a soft classifier to swallow it, corrupted
+// ciphertext could flow silently into a rendered manifest - this test catches
+// that regression.
+func TestSopsFilterHardFailureOnCorruptedCiphertext(t *testing.T) {
+	requireSopsCLI(t)
+	priv, pub := genAgeIdentity(t)
+	plaintext := []byte("tokens:\n    TOKEN: secret\n")
+	encrypted := sopsEncrypt(t, plaintext, pub, "yaml", "yaml", "secrets.enc.yaml")
+
+	// Flip one byte inside the first ENC[AES256_GCM,data:...payload...] value.
+	// Landing on the base64 payload (not the surrounding framing) corrupts
+	// the actual ciphertext, so the AEAD tag fails to authenticate - a
+	// cryptographic integrity failure, not a parse error.
+	corrupted := corruptEncPayload(encrypted)
+	if bytes.Equal(corrupted, encrypted) {
+		t.Fatal("setup: corruption helper did not alter the bytes")
+	}
+	if !looksLikeSops(corrupted) {
+		t.Fatal("setup: corrupted file must still look like sops")
+	}
+
+	// The CORRECT key is configured - the failure is data integrity, not auth.
+	withAgeKey(t, priv, func() {
+		_, err := sopsFilter("secrets.enc.yaml", corrupted)
+		if err == nil {
+			t.Fatal("expected hard failure for corrupted ciphertext, got nil - " +
+				"damaged bytes would pass through to the CUE compiler")
+		}
+		if !strings.Contains(err.Error(), "sops decrypt") {
+			t.Errorf("error = %q, want it to mention sops decrypt", err)
+		}
+		// The integrity failure must not be misclassified as a soft false
+		// positive. "authentication failed" is the AEAD tag mismatch; any of
+		// the three soft stems would mean a classifier swallowed it.
+		for _, soft := range []string{"metadata not found", "unmarshal", "not a mapping"} {
+			if strings.Contains(strings.ToLower(err.Error()), soft) {
+				t.Errorf("corrupted ciphertext was soft-classified (%q) and would pass through: %v", soft, err)
+			}
+		}
+	})
+}
+
+// corruptEncPayload flips one base64 char inside the first ENC[AES256_GCM,
+// data:...] payload so the ciphertext no longer authenticates. It preserves
+// the surrounding YAML structure so the failure reaches AEAD verification
+// rather than dying in the YAML parser.
+func corruptEncPayload(enc []byte) []byte {
+	b := append([]byte(nil), enc...)
+	needle := []byte("ENC[AES256_GCM,data:")
+	i := bytes.Index(b, needle)
+	if i < 0 {
+		return b
+	}
+	payload := i + len(needle)
+	// Find the comma that terminates the base64 data payload.
+	rel := bytes.IndexByte(b[payload:], ',')
+	if rel < 4 {
+		return b
+	}
+	// Flip a char in the middle of the payload (well inside the ciphertext,
+	// not at the framing boundary).
+	pos := payload + rel/2
+	b[pos] = flipBase64Char(b[pos])
+	return b
+}
+
+// flipBase64Char returns a different valid base64 char, ensuring the byte
+// actually changes value (so the ciphertext is genuinely corrupted) while
+// staying within the base64 alphabet (so the YAML still parses).
+func flipBase64Char(c byte) byte {
+	switch {
+	case c >= 'A' && c < 'Z':
+		return c + 1
+	case c >= 'a' && c < 'z':
+		return c + 1
+	case c >= '0' && c < '9':
+		return c + 1
+	case c == 'Z':
+		return 'A'
+	case c == 'z':
+		return 'a'
+	case c == '9':
+		return '0'
+	default:
+		return 'A'
+	}
+}
+
 // A heuristic false positive (markers present, not valid sops) passes through.
 func TestSopsFilterSoftPassthroughOnFalsePositive(t *testing.T) {
 	raw := []byte(`{"sops":"mentioned","unencrypted_suffix":"_","note":"not sops"}`)
@@ -280,6 +377,51 @@ func TestSopsFilterSoftPassthroughOnFalsePositive(t *testing.T) {
 	}
 	if !bytes.Equal(out, raw) {
 		t.Error("passthrough altered bytes")
+	}
+}
+
+// TestSopsFilterSoftPassthroughOnUnmarshalError covers the isUnmarshalError
+// classifier: a file that looks like sops (markers present) but is not valid
+// JSON/YAML, so the sops store rejects it with an "unmarshal" error. This is
+// a heuristic false positive, not a genuine sops file, so the bytes must pass
+// through unchanged to the CUE compiler - failing hard here would abort a
+// render over a file that was never encrypted.
+//
+// The garbled JSON below parses far enough for looksLikeSops to spot the
+// "sops" and "unencrypted_suffix" markers, then trips "Could not unmarshal
+// input data" inside the sops JSON store - the exact path isUnmarshalError
+// exists to catch. Without that classifier this input fails hard.
+func TestSopsFilterSoftPassthroughOnUnmarshalError(t *testing.T) {
+	raw := []byte(`{"sops":{,"unencrypted_suffix":"_"}`)
+	if !looksLikeSops(raw) {
+		t.Fatal("setup: input must trip looksLikeSops")
+	}
+	out, err := sopsFilter("broken.json", raw)
+	if err != nil {
+		t.Fatalf("expected soft passthrough on unmarshal error, got: %v", err)
+	}
+	if !bytes.Equal(out, raw) {
+		t.Errorf("passthrough altered bytes:\n got %q\n want %q", out, raw)
+	}
+}
+
+// TestSopsFilterSoftPassthroughOnMetadataNotFound covers the
+// errors.Is(err, sops.MetadataNotFound) classifier: a file whose "sops"
+// marker parses as a valid (but empty) mapping, so the sops store accepts the
+// structure but finds no metadata - the typed MetadataNotFound sentinel. Like
+// the other false positives, this passes through unchanged rather than
+// failing hard.
+func TestSopsFilterSoftPassthroughOnMetadataNotFound(t *testing.T) {
+	raw := []byte(`{"sops":{},"unencrypted_suffix":"_"}extra`)
+	if !looksLikeSops(raw) {
+		t.Fatal("setup: input must trip looksLikeSops")
+	}
+	out, err := sopsFilter("stub.json", raw)
+	if err != nil {
+		t.Fatalf("expected soft passthrough on MetadataNotFound, got: %v", err)
+	}
+	if !bytes.Equal(out, raw) {
+		t.Errorf("passthrough altered bytes:\n got %q\n want %q", out, raw)
 	}
 }
 
