@@ -1291,3 +1291,173 @@ export: objects: configMap: {
 		})
 	}
 }
+
+// TestOverlayDepthCap verifies the maxOverlayDepth guard fires on a directory
+// tree deeper than the cap. Unlike maxOverlayVisits (a var the visit-cap test
+// lowers), maxOverlayDepth is a const, so this test builds a genuinely deep
+// nesting (cap+5 levels) to trip it. The guard is a belt-and-braces backstop
+// for the ancestor-stack cycle detector; a real symlink loop is caught earlier
+// (see TestOverlayCycleDetection), so the depth cap only bites on absurdly
+// deep linear trees - but it must still bite rather than recurse forever.
+func TestOverlayDepthCap(t *testing.T) {
+	dir := t.TempDir()
+
+	// Build a chain of nested directories deeper than maxOverlayDepth.
+	depth := maxOverlayDepth + 5
+	current := dir
+	for i := range depth {
+		current = filepath.Join(current, fmt.Sprintf("lvl%d", i))
+	}
+	if err := os.MkdirAll(current, 0o755); err != nil {
+		t.Fatalf("mkdir chain: %v", err)
+	}
+	// Put a filterable file at the bottom so the walk has a reason to descend.
+	if err := os.WriteFile(filepath.Join(current, "deep.cue"), []byte("MARKER"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	filter := func(path string, raw []byte) ([]byte, error) {
+		return []byte(strings.ReplaceAll(string(raw), "MARKER", "done")), nil
+	}
+
+	_, err := buildOverlay(dir, filter)
+	if err == nil {
+		t.Fatal("expected depth-cap error, got nil")
+	}
+	if !strings.Contains(err.Error(), "exceeded depth") {
+		t.Errorf("error should mention depth exceeded, got: %v", err)
+	}
+}
+
+// TestOverlayCycleDetection verifies the ancestor-stack cycle detector halts a
+// symlink loop without aborting the walk. A symlink pointing at an ancestor
+// directory would otherwise recurse infinitely; the (dev,ino) ancestor check
+// recognizes the revisited directory and skips it, so the walk completes and
+// the non-looped sibling file still gets its overlay entry. This is the
+// primary loop defense (the depth cap is only a backstop).
+func TestOverlayCycleDetection(t *testing.T) {
+	dir := t.TempDir()
+
+	// A real file the filter will transform - proves the walk completed.
+	if err := os.WriteFile(filepath.Join(dir, "data.cue"), []byte("MARKER"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// loop/ points at dir itself, creating a cycle: dir/loop/ -> dir/.
+	loopDir := filepath.Join(dir, "loop")
+	if err := os.Symlink(dir, loopDir); err != nil {
+		t.Skipf("symlink not supported: %v", err)
+	}
+
+	filter := func(path string, raw []byte) ([]byte, error) {
+		return []byte(strings.ReplaceAll(string(raw), "MARKER", "decrypted")), nil
+	}
+
+	overlay, err := buildOverlay(dir, filter)
+	if err != nil {
+		t.Fatalf("cycle should be skipped, not fatal: %v", err)
+	}
+	if _, ok := overlay[filepath.Join(dir, "data.cue")]; !ok {
+		t.Errorf("overlay missing entry for data.cue (walk aborted by cycle?)")
+	}
+}
+
+// TestOverlaySkipsGitDir verifies the .git directory skip in buildOverlay.
+// TestOverlaySkipsVendoringDirs covers cue.mod/{pkg,gen,usr} but not .git;
+// without this guard the walker would descend into nested .git trees inside
+// recursively-mounted module sources, wasting depth budget and time on files
+// CUE can never use.
+func TestOverlaySkipsGitDir(t *testing.T) {
+	dir := t.TempDir()
+
+	// A normal CUE file the filter will transform.
+	writeFile(t, dir, "export.cue", "MARKER")
+
+	// A .git directory with a filterable file that must NOT be reached.
+	writeFile(t, dir, filepath.Join(".git", "objects", "pack", "pack.idx"), "GIT_MARKER")
+	writeFile(t, dir, filepath.Join(".git", "config"), "GIT_MARKER")
+
+	filter := func(path string, raw []byte) ([]byte, error) {
+		return []byte(strings.ReplaceAll(string(raw), "MARKER", "done")), nil
+	}
+
+	overlay, err := buildOverlay(dir, filter)
+	if err != nil {
+		t.Fatalf("buildOverlay: %v", err)
+	}
+
+	// The normal file must be filtered.
+	if _, ok := overlay[filepath.Join(dir, "export.cue")]; !ok {
+		t.Errorf("overlay missing entry for export.cue")
+	}
+
+	// Nothing under .git/ should have an overlay entry.
+	for path := range overlay {
+		if strings.Contains(path, string(filepath.Separator)+".git"+string(filepath.Separator)) ||
+			filepath.Base(filepath.Dir(path)) == ".git" {
+			t.Errorf("overlay should not contain .git file: %s", path)
+		}
+	}
+}
+
+// TestSortByKindNameOrdering verifies sortByKindName orders documents by kind
+// then metadata.name. Existing render tests assert presence of objects but
+// never deliberately scramble the input order to pin the sort: a regression
+// that dropped the comparator would still pass those (iteration order happens
+// to match). This test feeds objects in reverse alphabetic order across both
+// keys and asserts the output is sorted ascending by kind, then name.
+func TestSortByKindNameOrdering(t *testing.T) {
+	dir := t.TempDir()
+	writeModule(t, dir, "")
+	// Deliberately scrambled: kinds and names in reverse so neither insertion
+	// order nor map-iteration luck masks a missing sort.
+	writeFile(t, dir, "export.cue", `package control
+
+export: objects: {
+	service: {
+		"zzz-last": {
+			apiVersion: "v1"
+			kind:       "Service"
+			metadata: name: "zzz-last"
+		}
+		"aaa-first": {
+			apiVersion: "v1"
+			kind:       "Service"
+			metadata: name: "aaa-first"
+		}
+	}
+	configMap: {
+		"mmm-mid": {
+			apiVersion: "v1"
+			kind:       "ConfigMap"
+			metadata: name: "mmm-mid"
+		}
+	}
+}
+`)
+
+	t.Chdir(dir)
+	var out bytes.Buffer
+	if err := Exec(".", &out, Options{}); err != nil {
+		t.Fatalf("Exec: %v", err)
+	}
+	got := out.String()
+
+	// Expected ascending order: ConfigMap/mmm-mid, Service/aaa-first,
+	// Service/zzz-last. Assert each name appears and that they appear in
+	// this exact order (ConfigMap < Service; aaa-first < zzz-last within Service).
+	wantOrder := []string{"name: mmm-mid", "name: aaa-first", "name: zzz-last"}
+	prev := -1
+	for _, want := range wantOrder {
+		idx := strings.Index(got, want)
+		if idx < 0 {
+			t.Errorf("output missing %q\n%s", want, got)
+			continue
+		}
+		if idx <= prev {
+			t.Errorf("%q appears at %d, expected after the previous match at %d (wrong sort order)\n%s",
+				want, idx, prev, got)
+		}
+		prev = idx
+	}
+}
