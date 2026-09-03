@@ -107,6 +107,47 @@ cuegen: {
 			want: "",
 		},
 		{
+			// CUE permits multiple top-level `cuegen:` fields in one file
+			// (they unify at evaluation time). apiVersion in the SECOND
+			// declaration must still be found: readAPIVersion scans every
+			// cuegen decl rather than concluding "pre-versioning" on the
+			// first one that lacks it. Regression test for the premature
+			// `return "", nil` that silently fell back to the legacy binary.
+			name: "split declarations, apiVersion second",
+			src: `package control
+
+cuegen: spec: export: "export.objects"
+
+cuegen: apiVersion: "v2"
+`,
+			want: "v2",
+		},
+		{
+			// Chained-shorthand form split across two declarations: the
+			// first carries spec.import, the second carries apiVersion.
+			// Same guarantee as the nested-form split case above.
+			name: "split chained shorthand, apiVersion second",
+			src: `package control
+
+cuegen: spec: import: []
+
+cuegen: apiVersion: "v2.1.0"
+`,
+			want: "v2.1.0",
+		},
+		{
+			// All cuegen declarations lack apiVersion: genuinely
+			// pre-versioning, even though cuegen appears multiple times.
+			name: "split declarations, no apiVersion anywhere",
+			src: `package control
+
+cuegen: spec: export: "export.objects"
+
+cuegen: spec: import: []
+`,
+			want: "",
+		},
+		{
 			// No cuegen field at all: same as an absent apiVersion, since
 			// nothing here distinguishes it from a pre-versioning module.
 			name: "no cuegen field",

@@ -313,10 +313,13 @@ func majorVersion(s string) (int, bool) {
 //	cuegen: { apiVersion: "v2" }    // struct literal
 //	cuegen: apiVersion: "v2"        // chained label shorthand
 //
-// A missing apiVersion field is not an error: it denotes a pre-versioning
-// module, and the caller falls back to the legacy binary. A field that is
-// present but malformed - non-string or empty - is a genuine fault and
-// returns an error. Read/parse failures likewise return an error.
+// CUE permits multiple top-level `cuegen:` fields in one file (they unify at
+// evaluation time), so every declaration is scanned: the first one carrying
+// an apiVersion wins. A missing apiVersion across all cuegen declarations is
+// not an error: it denotes a pre-versioning module, and the caller falls back
+// to the legacy binary. A field that is present but malformed - non-string or
+// empty - is a genuine fault and returns an error. Read/parse failures
+// likewise return an error.
 func readAPIVersion(file string) (string, error) {
 	src, err := os.ReadFile(file)
 	if err != nil {
@@ -336,9 +339,13 @@ func readAPIVersion(file string) (string, error) {
 		}
 		valExpr, present := findAPIVersionField(fd.Value)
 		if !present {
-			// cuegen exists but has no apiVersion: a pre-versioning module.
-			// Signal "absent" to the caller via the empty string, no error.
-			return "", nil
+			// This cuegen declaration has no apiVersion, but CUE permits
+			// multiple top-level `cuegen:` fields in one file (they unify at
+			// evaluation time), so a later declaration may carry it. Continue
+			// scanning instead of concluding "pre-versioning" prematurely -
+			// otherwise a v2 module that splits cuegen across declarations
+			// would silently fall back to the legacy binary.
+			continue
 		}
 		lit, ok := stringLit(valExpr)
 		if !ok {
@@ -349,7 +356,9 @@ func readAPIVersion(file string) (string, error) {
 		}
 		return lit, nil
 	}
-	// No cuegen field at all: treat as pre-versioning, like an absent field.
+	// No cuegen declaration carried an apiVersion (either no cuegen field at
+	// all, or cuegen fields that all lack it): treat as a pre-versioning
+	// module, like an absent field.
 	return "", nil
 }
 
