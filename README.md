@@ -28,6 +28,16 @@ Modules whose `cuegen.cue` carries an older or missing `cuegen.apiVersion`
 preserving stdin/stdout/stderr and the exit code. If that binary is not on
 `PATH`, cuegen aborts with a pointer to the release page.
 
+Before delegating, cuegen verifies the SHA256 of `cuegen_v0.16.8` against
+known-good hashes drawn from the [v0.16.8 release](https://github.com/noris-network/cuegen/releases/tag/v0.16.8)
+(`linux/amd64`, `linux/arm64`, `darwin/amd64`, `darwin/arm64`). A mismatch
+aborts with the expected and actual digests and a pointer to reinstall; this
+guards against a corrupted or PATH-shadowed binary. Operators with a self-built
+legacy binary can set `CUEGEN_LEGACY_SHA256=sha256:<hex>` to assert their own
+digest, or `CUEGEN_LEGACY_SHA256=skip` to bypass the check (which emits a
+warning). On a platform without an embedded hash, cuegen names the env var in
+its diagnostic.
+
 A directory without a `cuegen.cue` at all is not a cuegen module: cuegen exits
 with an error rather than falling back to the legacy binary.
 
