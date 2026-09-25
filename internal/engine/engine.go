@@ -490,9 +490,9 @@ const maxFilterFileSize = 32 << 20
 // symlink alias path gets its own overlay entry), a maliciously nested
 // symlink DAG can produce exponentially many paths while each individual
 // chain stays within the depth budget. This cap turns that into a clear
-// error instead of an unbounded walk. 1 M is far above any legitimate
+// error instead of an unbounded walk. 50 k is far above any legitimate
 // module tree. It is a var (not const) so tests can lower it.
-var maxOverlayVisits = 1_000_000
+var maxOverlayVisits = 50_000
 
 // moduleRoot finds the module root by searching upward from the process's
 // current working directory for a directory containing cue.mod. CUE unifies
