@@ -1,19 +1,30 @@
-FROM        docker.io/nxcc/cuegen-cmp:v0.16.8 AS legacy
+# CMP image for ArgoCD. Neither binary is built here: both are pulled from
+# their respective GitHub Release archives so there is exactly one canonical
+# build per binary (goreleaser for the current version, the frozen v0.16.8
+# archive for the legacy fallback). Building from source in this image used
+# to produce a legacy binary whose bytes differed from the Release archive,
+# which defeated hash-based integrity verification.
 
-FROM        golang:1.27.1 AS builder
-WORKDIR     /go/src/app
-ARG         VERSION
-COPY        . ./
-RUN         CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X 'main.build=$VERSION'" -o cuegen ./cmd/cuegen
-RUN         curl -sfL https://github.com/mikefarah/yq/releases/download/v4.53.2/yq_linux_amd64 -o /tmp/yq && chmod 755 /tmp/yq
+# Legacy binary: pulled once from the frozen v0.16.8 Release archive.
+FROM docker.io/library/golang:1.27.1 AS legacyfetch
+ARG LEGACY_ARCHIVE_SHA=2d30764bc3c64f28ddc28a59a3c8d2bfca7d7ef353e947439c07f65462239910
+RUN curl -sfL https://github.com/noris-network/cuegen/releases/download/v0.16.8/cuegen_0.16.8_linux_amd64.tar.gz -o /tmp/legacy.tgz \
+ && echo "${LEGACY_ARCHIVE_SHA}  /tmp/legacy.tgz" | sha256sum -c - \
+ && tar xzf /tmp/legacy.tgz -C /tmp && mv /tmp/cuegen /tmp/cuegen_v0.16.8
 
-FROM        docker.io/library/debian:13-slim
-COPY        --from=legacy  /bin/cuegen              /bin/cuegen_v0.16.8
-ENV         DEBIAN_FRONTEND=noninteractive
-RUN         apt-get update && apt-get install -y --no-install-recommends \
+# Current binary: pulled from the Release archive goreleaser just published.
+FROM docker.io/library/golang:1.27.1 AS curfetch
+ARG VERSION
+RUN curl -sfL https://github.com/noris-network/cuegen/releases/download/${VERSION}/cuegen_${VERSION#v}_linux_amd64.tar.gz -o /tmp/cur.tgz \
+ && tar xzf /tmp/cur.tgz -C /tmp && mv /tmp/cuegen /tmp/cuegen
+
+FROM docker.io/library/debian:13-slim
+COPY --from=legacyfetch /tmp/cuegen_v0.16.8 /bin/cuegen_v0.16.8
+COPY --from=curfetch    /tmp/cuegen         /bin/cuegen
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y --no-install-recommends \
                 ca-certificates \
             && rm -rf /var/cache/apt/archives /var/lib/apt/lists/*
-ENV         CUE_CACHE_DIR=/tmp
-COPY        --from=builder /tmp/yq                  /bin/yq
-COPY        --from=builder /go/src/app/cuegen       /bin/cuegen
-COPY        --from=builder /go/src/app/docker/plugin.yaml /home/argocd/cmp-server/config/plugin.yaml
+ENV CUE_CACHE_DIR=/tmp
+RUN curl -sfL https://github.com/mikefarah/yq/releases/download/v4.53.2/yq_linux_amd64 -o /bin/yq && chmod 755 /bin/yq
+COPY docker/plugin.yaml /home/argocd/cmp-server/config/plugin.yaml
