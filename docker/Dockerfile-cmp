@@ -24,6 +24,7 @@ COPY --from=curfetch    /tmp/cuegen         /bin/cuegen
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
                 ca-certificates \
+                curl \
             && rm -rf /var/cache/apt/archives /var/lib/apt/lists/*
 ENV CUE_CACHE_DIR=/tmp
 RUN curl -sfL https://github.com/mikefarah/yq/releases/download/v4.53.2/yq_linux_amd64 -o /bin/yq && chmod 755 /bin/yq
