@@ -269,6 +269,25 @@ func runLegacy(args, v2Flags []string) {
 			"install it from %s and ensure it is executable and on your PATH",
 			legacyBinary, err, legacyReleaseURL)
 	}
+	switch verr := verifyLegacyIntegrity(binary); verr {
+	case nil:
+		// ok
+	case errSkipRequested:
+		fmt.Fprintln(os.Stderr, "[WARNING] legacy binary integrity check skipped via "+legacyShaEnv+"=skip")
+	default:
+		if mm, ok := verr.(mismatchError); ok {
+			log.Fatalf("cuegen: legacy binary %q failed integrity check: SHA256 mismatch\n"+
+				"  expected %s\n  got      %s\n"+
+				"reinstall it from %s",
+				legacyBinary, mm.expected, mm.got, legacyReleaseURL)
+		}
+		if errors.Is(verr, errUnknownPlatform) {
+			log.Fatalf("cuegen: no expected SHA256 for legacy binary on %s/%s\n"+
+				"set %s=sha256:<hex> for a self-built binary, or =skip to bypass",
+				runtime.GOOS, runtime.GOARCH, legacyShaEnv)
+		}
+		log.Fatalf("cuegen: verify legacy binary %q: %v", legacyBinary, verr)
+	}
 	fmt.Fprintln(os.Stderr, "[INFO] fallback to", legacyBinary)
 	argv := append([]string{legacyBinary}, args...)
 	if err := syscall.Exec(binary, argv, os.Environ()); err != nil {
