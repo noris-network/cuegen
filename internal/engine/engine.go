@@ -687,8 +687,13 @@ func buildOverlay(root string, filter FileFilter) (map[string]load.Source, error
 		}
 		raw, err := os.ReadFile(p)
 		if err != nil {
-			// *fs.PathError already includes the path and operation.
-			return err
+			// An unreadable regular file (e.g. chmod 000 in vendored
+			// cue.mod/pkg trees or CI artifact dirs) is skipped rather than
+			// aborting the entire render, mirroring the graceful handling of
+			// unreadable directories above: CUE never loads arbitrary
+			// unreadable files from the module tree.
+			log.Printf("skipping unreadable file %s: %v", p, err)
+			return nil
 		}
 		filtered, err := filter(p, raw)
 		if err != nil {
