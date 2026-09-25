@@ -119,15 +119,19 @@ func Exec(path string, out io.Writer, opts Options) error {
 		path = "./" + path
 	}
 
+	root, err := moduleRoot()
+	if err != nil {
+		return fmt.Errorf("find module root: %w", err)
+	}
+	if err := requireModuleRootCwd(root); err != nil {
+		return err
+	}
+
 	// The overlay only ever contains files the filter changed; without a
 	// filter it would always be empty, so the walk is skipped entirely.
 	var overlay map[string]load.Source
 	var dir string
 	if opts.FileFilter != nil {
-		root, err := moduleRoot()
-		if err != nil {
-			return fmt.Errorf("find module root: %w", err)
-		}
 		overlay, err = buildOverlay(root, opts.FileFilter)
 		if err != nil {
 			return fmt.Errorf("build overlay for %q: %w", root, err)
@@ -545,6 +549,42 @@ func moduleRoot() (string, error) {
 		}
 		dir = parent
 	}
+}
+
+// requireModuleRootCwd fails unless the process's working directory is the
+// module root. A cuegen module is defined by cuegen.cue sitting beside
+// cue.mod, and the command reads cuegen.cue from the working directory - so
+// the two are the same directory by construction, and a mismatch means the
+// caller is not in a cuegen module at all.
+//
+// Left unchecked this is silent rather than loud: CUE resolves the render
+// path against the module root, so a render started one directory down loads
+// the root package instead of the caller's and exits 0 with a manifest nobody
+// asked for. That is the same class of fault as a missing cuegen.cue, which
+// the command already treats as hard (see its doc comment), so treat it the
+// same way - and point at the path argument, which is how a subdirectory is
+// actually meant to be rendered.
+func requireModuleRootCwd(root string) error {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("resolve working directory: %w", err)
+	}
+	// moduleRoot returns a symlink-resolved path; compare like with like, or
+	// a working directory reached through a symlink would look like a
+	// violation (see TestExecFiltersThroughSymlinkedCwd).
+	if resolved, rerr := filepath.EvalSymlinks(cwd); rerr == nil {
+		cwd = resolved
+	}
+	if cwd == root {
+		return nil
+	}
+	hint := ""
+	if rel, rerr := filepath.Rel(root, cwd); rerr == nil {
+		hint = fmt.Sprintf("; to render this directory, run cuegen from %s with the path argument: cuegen ./%s",
+			root, filepath.ToSlash(rel))
+	}
+	return fmt.Errorf("cuegen must run from the module root %s, but the working directory is %s%s",
+		root, cwd, hint)
 }
 
 // withinRoot reports whether p resolves to a path inside root. Regular

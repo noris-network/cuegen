@@ -1461,3 +1461,101 @@ export: objects: {
 		prev = idx
 	}
 }
+
+// TestExecRejectsNonRootCwd pins the module-root invariant: cuegen.cue is
+// defined to sit beside cue.mod, so the working directory a render starts
+// from must be the module root. Before the guard this failed silently in the
+// worst possible way - CUE resolves the render path against the module root,
+// so a render started in a subdirectory loaded the ROOT package, wrote a
+// manifest the caller never asked for, and exited 0. The subdirectory below
+// carries its own cuegen.cue and package precisely to reproduce that: without
+// the guard it renders "from-root" instead of "from-sub".
+func TestExecRejectsNonRootCwd(t *testing.T) {
+	root := t.TempDir()
+	writeModule(t, root, "")
+	writeFile(t, root, "export.cue", `package control
+
+export: objects: configMap: root: {
+	apiVersion: "v1"
+	kind:       "ConfigMap"
+	metadata: name: "from-root"
+}
+`)
+	// A subdirectory that looks like a module of its own, but has no cue.mod
+	// - so moduleRoot() walks up past it to root.
+	writeFile(t, root, "sub/cuegen.cue", `package sub
+
+cuegen: {
+	apiVersion: "v2"
+}
+`)
+	writeFile(t, root, "sub/export.cue", `package sub
+
+export: objects: configMap: sub: {
+	apiVersion: "v1"
+	kind:       "ConfigMap"
+	metadata: name: "from-sub"
+}
+`)
+	t.Chdir(filepath.Join(root, "sub"))
+
+	// Both filter modes must refuse: the guard runs before the overlay walk,
+	// so it cannot depend on whether a FileFilter is configured.
+	for _, tc := range []struct {
+		name string
+		opts Options
+	}{
+		{"no filter", Options{}},
+		{"with filter", Options{FileFilter: func(_ string, raw []byte) ([]byte, error) { return raw, nil }}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var out bytes.Buffer
+			err := Exec(".", &out, tc.opts)
+			if err == nil {
+				t.Fatalf("Exec from a subdirectory succeeded, rendered:\n%s", out.String())
+			}
+			if !strings.Contains(err.Error(), "must run from the module root") {
+				t.Errorf("unexpected error: %v", err)
+			}
+			if out.Len() != 0 {
+				t.Errorf("expected no output, got:\n%s", out.String())
+			}
+			// The whole point of the guard: the caller must not be handed the
+			// parent package's objects in place of their own.
+			if strings.Contains(out.String(), "from-root") {
+				t.Error("rendered the root package from a subdirectory")
+			}
+		})
+	}
+}
+
+// TestExecAcceptsModuleRootCwd is the positive half of
+// TestExecRejectsNonRootCwd: the guard must not reject the ordinary case, nor
+// the path-argument form that renders a subdirectory by unifying it into the
+// current module.
+func TestExecAcceptsModuleRootCwd(t *testing.T) {
+	root := t.TempDir()
+	writeModule(t, root, "")
+	writeFile(t, root, "export.cue", `package control
+
+export: objects: configMap: cm: {
+	apiVersion: "v1"
+	kind:       "ConfigMap"
+	metadata: name: "cm"
+	data: env: string
+}
+`)
+	writeFile(t, root, "prod/export.cue", `package control
+
+export: objects: configMap: cm: data: env: "prod"
+`)
+	t.Chdir(root)
+
+	var out bytes.Buffer
+	if err := Exec("./prod", &out, Options{}); err != nil {
+		t.Fatalf("Exec from the module root: %v", err)
+	}
+	if !strings.Contains(out.String(), "env: prod") {
+		t.Errorf("expected the subdirectory value to be unified in:\n%s", out.String())
+	}
+}
