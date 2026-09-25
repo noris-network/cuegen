@@ -16,7 +16,7 @@ RUN curl -sfL https://github.com/noris-network/cuegen/releases/download/v0.16.8/
 FROM docker.io/library/golang:1.27.1 AS curfetch
 ARG VERSION
 RUN curl -sfL https://github.com/noris-network/cuegen/releases/download/${VERSION}/cuegen_${VERSION#v}_linux_amd64.tar.gz -o /tmp/cur.tgz \
- && tar xzf /tmp/cur.tgz -C /tmp && mv /tmp/cuegen /tmp/cuegen
+ && tar xzf /tmp/cur.tgz -C /tmp
 
 FROM docker.io/library/debian:13-slim
 COPY --from=legacyfetch /tmp/cuegen_v0.16.8 /bin/cuegen_v0.16.8
