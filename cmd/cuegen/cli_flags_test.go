@@ -579,7 +579,7 @@ cuegen: {
 		t.Fatal(err)
 	}
 
-	stdout, stderr := runWithFakeLegacy(t, dir, ".")
+	stdout, stderr := runWithFakeLegacyEnv(t, dir, []string{"CUEGEN_LEGACY_SHA256=skip"}, ".")
 	if want := "legacy called with: .\n"; stdout != want {
 		t.Errorf("stdout = %q, want %q", stdout, want)
 	}
@@ -639,9 +639,12 @@ func TestLegacyFallbackRejectsV2Flags(t *testing.T) {
 	}
 }
 
-// runWithFakeLegacy invokes cuegen in dir with a fake legacy binary on PATH
-// that echoes its argv, returning cuegen's stdout and stderr.
-func runWithFakeLegacy(t *testing.T, dir string, args ...string) (string, string) {
+// runWithFakeLegacyEnv invokes cuegen in dir with a fake legacy binary on
+// PATH that echoes its argv, returning cuegen's stdout and stderr. The fake
+// binary is a shell script whose hash is not in the embedded map, so the
+// caller must set CUEGEN_LEGACY_SHA256 (typically "=skip") via extraEnv to
+// pass the integrity check, or supply the script's real hash.
+func runWithFakeLegacyEnv(t *testing.T, dir string, extraEnv []string, args ...string) (string, string) {
 	t.Helper()
 	binDir := t.TempDir()
 	script := "#!/bin/sh\necho \"legacy called with: $@\"\n"
@@ -651,7 +654,9 @@ func runWithFakeLegacy(t *testing.T, dir string, args ...string) (string, string
 
 	cmd := exec.Command(cuegenBin, args...)
 	cmd.Dir = dir
-	cmd.Env = append(os.Environ(), "PATH="+binDir+":"+os.Getenv("PATH"))
+	env := append(os.Environ(), "PATH="+binDir+":"+os.Getenv("PATH"))
+	env = append(env, extraEnv...)
+	cmd.Env = env
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -667,7 +672,7 @@ func TestLegacyFallbackWithoutFlags(t *testing.T) {
 	dir := t.TempDir()
 	writeLegacyModule(t, dir)
 
-	stdout, stderr := runWithFakeLegacy(t, dir, ".")
+	stdout, stderr := runWithFakeLegacyEnv(t, dir, []string{"CUEGEN_LEGACY_SHA256=skip"}, ".")
 	if want := "legacy called with: .\n"; stdout != want {
 		t.Errorf("stdout = %q, want %q", stdout, want)
 	}
@@ -684,9 +689,96 @@ func TestLegacyFallbackForwardsUnknownFlags(t *testing.T) {
 	dir := t.TempDir()
 	writeLegacyModule(t, dir)
 
-	stdout, _ := runWithFakeLegacy(t, dir, "-debug", ".")
+	stdout, _ := runWithFakeLegacyEnv(t, dir, []string{"CUEGEN_LEGACY_SHA256=skip"}, "-debug", ".")
 	if want := "legacy called with: -debug .\n"; stdout != want {
 		t.Errorf("stdout = %q, want %q", stdout, want)
+	}
+}
+
+// fakeLegacyScriptHash computes the SHA256 of the exact shell-script body that
+// runWithFakeLegacyEnv writes as the fake cuegen_v0.16.8, so an end-to-end
+// test can pass CUEGEN_LEGACY_SHA256=sha256:<this> and expect the integrity
+// check to pass.
+func fakeLegacyScriptHash(t *testing.T) string {
+	t.Helper()
+	script := "#!/bin/sh\necho \"legacy called with: $@\"\n"
+	sum := sha256.Sum256([]byte(script))
+	return hex.EncodeToString(sum[:])
+}
+
+// TestLegacyFallbackSkipsIntegrityCheckWithEnv verifies that
+// CUEGEN_LEGACY_SHA256=skip emits the [WARNING] line and still execs the
+// (unverified) legacy binary.
+func TestLegacyFallbackSkipsIntegrityCheckWithEnv(t *testing.T) {
+	dir := t.TempDir()
+	writeLegacyModule(t, dir)
+
+	stdout, stderr := runWithFakeLegacyEnv(t, dir, []string{"CUEGEN_LEGACY_SHA256=skip"}, ".")
+	if want := "legacy called with: .\n"; stdout != want {
+		t.Errorf("stdout = %q, want %q", stdout, want)
+	}
+	if !strings.Contains(stderr, "[WARNING]") {
+		t.Errorf("stderr should warn about skipped integrity check, got %q", stderr)
+	}
+	if !strings.Contains(stderr, "fallback to cuegen_v0.16.8") {
+		t.Errorf("stderr should still announce the fallback, got %q", stderr)
+	}
+}
+
+// TestLegacyFallbackPassesIntegrityCheckWithMatchingHash verifies that an
+// explicit CUEGEN_LEGACY_SHA256 matching the fake binary's real hash lets the
+// fallback proceed WITHOUT a [WARNING].
+func TestLegacyFallbackPassesIntegrityCheckWithMatchingHash(t *testing.T) {
+	dir := t.TempDir()
+	writeLegacyModule(t, dir)
+
+	hash := fakeLegacyScriptHash(t)
+	stdout, stderr := runWithFakeLegacyEnv(t, dir, []string{"CUEGEN_LEGACY_SHA256=sha256:" + hash}, ".")
+	if want := "legacy called with: .\n"; stdout != want {
+		t.Errorf("stdout = %q, want %q", stdout, want)
+	}
+	if strings.Contains(stderr, "[WARNING]") {
+		t.Errorf("stderr should not warn when the hash matches, got %q", stderr)
+	}
+	if !strings.Contains(stderr, "fallback to cuegen_v0.16.8") {
+		t.Errorf("stderr should announce the fallback, got %q", stderr)
+	}
+}
+
+// TestLegacyFallbackFatalsOnHashMismatch verifies that a wrong
+// CUEGEN_LEGACY_SHA256 aborts with the SHA256-mismatch diagnostic and never
+// execs the fake binary.
+func TestLegacyFallbackFatalsOnHashMismatch(t *testing.T) {
+	dir := t.TempDir()
+	writeLegacyModule(t, dir)
+
+	wrong := "sha256:" + strings.Repeat("0", 64)
+	binDir := t.TempDir()
+	script := "#!/bin/sh\necho \"legacy called with: $@\"\n"
+	if err := os.WriteFile(filepath.Join(binDir, "cuegen_v0.16.8"), []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command(cuegenBin, ".")
+	cmd.Dir = dir
+	cmd.Env = append(os.Environ(),
+		"PATH="+binDir+":"+os.Getenv("PATH"),
+		"CUEGEN_LEGACY_SHA256="+wrong,
+	)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	err := cmd.Run()
+	if err == nil {
+		t.Fatal("expected non-zero exit on hash mismatch, got nil")
+	}
+	if stdout.Len() != 0 {
+		t.Errorf("stdout should be empty on mismatch, got %q", stdout.String())
+	}
+	if !strings.Contains(stderr.String(), "SHA256 mismatch") {
+		t.Errorf("stderr should report SHA256 mismatch, got %q", stderr.String())
+	}
+	if !strings.Contains(stderr.String(), "reinstall") {
+		t.Errorf("stderr should point to reinstall, got %q", stderr.String())
 	}
 }
 
