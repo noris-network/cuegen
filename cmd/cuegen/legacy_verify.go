@@ -85,17 +85,24 @@ func expectedHash(override string) (string, error) {
 	return "", errUnknownPlatform
 }
 
-// normalizeDigest accepts "sha256:<hex>" or a bare 64-char lowercase hex
-// string and returns the bare hex digest, or "" if the input is not a usable
+// normalizeDigest accepts "sha256:<hex>" or a bare 64-char hex string and
+// returns the lowercased bare hex digest, or "" if the input is not a usable
 // SHA256 digest.
+//
+// The character set is checked, not just the length: 64 characters of
+// non-hex text can never equal a computed digest, so accepting it made
+// expectedHash report garbage as the expected value ("expected zzzz…")
+// instead of falling through to the platform map as its doc claims. It
+// failed closed either way - this only fixes which diagnostic the operator
+// sees.
 func normalizeDigest(s string) string {
-	s = strings.TrimSpace(s)
-	if strings.HasPrefix(strings.ToLower(s), "sha256:") {
-		s = s[len("sha256:"):]
-	}
-	s = strings.Trim(s, " ")
+	s = strings.ToLower(strings.TrimSpace(s))
+	s = strings.TrimPrefix(s, "sha256:")
 	if len(s) != 64 {
 		return ""
 	}
-	return strings.ToLower(s)
+	if _, err := hex.DecodeString(s); err != nil {
+		return ""
+	}
+	return s
 }

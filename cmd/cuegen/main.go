@@ -269,24 +269,27 @@ func runLegacy(args, v2Flags []string) {
 			"install it from %s and ensure it is executable and on your PATH",
 			legacyBinary, err, legacyReleaseURL)
 	}
-	switch verr := verifyLegacyIntegrity(binary); verr {
-	case nil:
+	// errors.Is/As rather than == and a type assertion, so wrapping a future
+	// error on the way out of verifyLegacyIntegrity cannot quietly demote a
+	// mismatch to the generic branch. log's prefix is already "cuegen: " (set
+	// in main), so these messages must not repeat it.
+	var mm mismatchError
+	switch verr := verifyLegacyIntegrity(binary); {
+	case verr == nil:
 		// ok
-	case errSkipRequested:
+	case errors.Is(verr, errSkipRequested):
 		fmt.Fprintln(os.Stderr, "[WARNING] legacy binary integrity check skipped via "+legacyShaEnv+"=skip")
+	case errors.As(verr, &mm):
+		log.Fatalf("legacy binary %q failed integrity check: SHA256 mismatch\n"+
+			"  expected %s\n  got      %s\n"+
+			"reinstall it from %s",
+			legacyBinary, mm.expected, mm.got, legacyReleaseURL)
+	case errors.Is(verr, errUnknownPlatform):
+		log.Fatalf("no expected SHA256 for legacy binary on %s/%s\n"+
+			"set %s=sha256:<hex> for a self-built binary, or =skip to bypass",
+			runtime.GOOS, runtime.GOARCH, legacyShaEnv)
 	default:
-		if mm, ok := verr.(mismatchError); ok {
-			log.Fatalf("cuegen: legacy binary %q failed integrity check: SHA256 mismatch\n"+
-				"  expected %s\n  got      %s\n"+
-				"reinstall it from %s",
-				legacyBinary, mm.expected, mm.got, legacyReleaseURL)
-		}
-		if errors.Is(verr, errUnknownPlatform) {
-			log.Fatalf("cuegen: no expected SHA256 for legacy binary on %s/%s\n"+
-				"set %s=sha256:<hex> for a self-built binary, or =skip to bypass",
-				runtime.GOOS, runtime.GOARCH, legacyShaEnv)
-		}
-		log.Fatalf("cuegen: verify legacy binary %q: %v", legacyBinary, verr)
+		log.Fatalf("verify legacy binary %q: %v", legacyBinary, verr)
 	}
 	fmt.Fprintln(os.Stderr, "[INFO] fallback to", legacyBinary)
 	argv := append([]string{legacyBinary}, args...)

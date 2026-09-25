@@ -134,7 +134,9 @@ func TestNormalizeDigest(t *testing.T) {
 		{"sha256:" + strings.Repeat("a", 64), strings.Repeat("a", 64)},
 		{"SHA256:" + strings.Repeat("a", 64), strings.Repeat("a", 64)},
 		{strings.Repeat("A", 64), strings.Repeat("a", 64)}, // uppercased bare hex normalized
-		{strings.Repeat("z", 64), strings.Repeat("z", 64)}, // length ok; validity checked downstream
+		{strings.Repeat("z", 64), ""},
+		{"sha256:" + strings.Repeat("z", 64), ""},
+		{strings.Repeat("a", 63) + "g", ""}, // one non-hex character is enough
 	}
 	for _, c := range cases {
 		if got := normalizeDigest(c.in); got != c.want {

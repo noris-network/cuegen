@@ -12,7 +12,8 @@ import (
 	"encoding/hex"
 	"fmt"
 	"hash"
-	"sort"
+	"maps"
+	"slices"
 	"strings"
 )
 
@@ -35,12 +36,7 @@ var algos = map[string]struct {
 // supported lists the registered algorithm names, sorted, for error
 // messages.
 func supported() string {
-	names := make([]string, 0, len(algos))
-	for name := range algos {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	return strings.Join(names, ", ")
+	return strings.Join(slices.Sorted(maps.Keys(algos)), ", ")
 }
 
 // Digest is a parsed comparison value from -cmp-hash.
