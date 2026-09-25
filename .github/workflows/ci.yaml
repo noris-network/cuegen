@@ -65,3 +65,60 @@ jobs:
         env:
           CUEGEN_REQUIRE_SOPS_CLI: "1"
         run: go test -race ./...
+
+  # The CMP image was previously only ever built while cutting a release, so a
+  # Dockerfile mistake surfaced as a broken release - twice in a row most
+  # recently (7d43846 "Fix curfetch stage", eab6f96 "Install curl ... for yq
+  # download"). Building it here moves that discovery to the pull request.
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      # Both binaries come from published Release archives, so a branch has no
+      # archive of its own to build against. The latest published tag stands in:
+      # it exercises every step that actually breaks - the two fetch stages,
+      # both checksum verifications, apt, and the yq install - and only leaves
+      # out "the tag being released exists", which is true by construction in
+      # the release workflow.
+      - name: Resolve latest release tag
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag=$(gh release view --repo "${{ github.repository }}" --json tagName -q .tagName 2>/dev/null || true)
+          if [ -z "${tag}" ]; then
+            echo "::notice::no published release to build the CMP image against; skipping"
+          else
+            echo "building CMP image against ${tag}"
+          fi
+          echo "tag=${tag}" >> "${GITHUB_OUTPUT}"
+
+      - name: Build CMP image
+        if: steps.release.outputs.tag != ''
+        run: |
+          docker build . \
+            -f docker/Dockerfile-cmp \
+            -t cuegen-cmp:ci \
+            --build-arg "VERSION=${{ steps.release.outputs.tag }}"
+
+      # A green build only proves the layers ran. These assertions prove the
+      # image is actually usable as an ArgoCD sidecar: both binaries present
+      # and runnable, yq executable (so its checksum gate and chmod worked),
+      # the plugin manifest in place, and the discovery probe honouring its
+      # contract - silent outside a module, exactly "true" inside one.
+      - name: Smoke-test CMP image
+        if: steps.release.outputs.tag != ''
+        run: |
+          set -eux
+          docker run --rm cuegen-cmp:ci /bin/cuegen version
+          docker run --rm cuegen-cmp:ci /bin/yq --version
+          docker run --rm cuegen-cmp:ci test -x /bin/cuegen_v0.16.8
+          docker run --rm cuegen-cmp:ci test -f /home/argocd/cmp-server/config/plugin.yaml
+
+          probe=$(docker run --rm cuegen-cmp:ci /bin/cuegen -is-cuegen-dir)
+          test -z "${probe}"
+
+          probe=$(docker run --rm -w /tmp cuegen-cmp:ci \
+            sh -c 'touch cuegen.cue && /bin/cuegen -is-cuegen-dir')
+          test "${probe}" = "true"
