@@ -345,14 +345,34 @@ func writeYaml(nodes []*yaml.RNode, out io.Writer, wide bool) error {
 type sortByKindName struct{}
 
 func (sortByKindName) Filter(nodes []*yaml.RNode) ([]*yaml.RNode, error) {
-	slices.SortStableFunc(nodes, func(a, b *yaml.RNode) int {
-		am, _ := a.GetMeta()
-		bm, _ := b.GetMeta()
+	// Extract metadata once per node up front so a GetMeta failure surfaces
+	// as an error rather than silently sorting the node with empty
+	// kind/name to the front of the stream.
+	metas := make([]yaml.ResourceMeta, len(nodes))
+	for i, n := range nodes {
+		m, err := n.GetMeta()
+		if err != nil {
+			return nil, fmt.Errorf("sort: extract metadata from node %d: %w", i, err)
+		}
+		metas[i] = m
+	}
+	// Sort an index permutation so the pre-extracted metadata aligns with
+	// the nodes without re-walking the RNode tree inside the comparator.
+	idx := make([]int, len(nodes))
+	for i := range idx {
+		idx[i] = i
+	}
+	slices.SortStableFunc(idx, func(a, b int) int {
 		return cmp.Or(
-			cmp.Compare(am.Kind, bm.Kind),
-			cmp.Compare(am.Name, bm.Name),
+			cmp.Compare(metas[a].Kind, metas[b].Kind),
+			cmp.Compare(metas[a].Name, metas[b].Name),
 		)
 	})
+	order := make([]*yaml.RNode, len(nodes))
+	for i, j := range idx {
+		order[i] = nodes[j]
+	}
+	copy(nodes, order)
 	return nodes, nil
 }
 
