@@ -23,6 +23,7 @@ func TestParseValid(t *testing.T) {
 		{"full lowercase", "sha256:" + full, full, false},
 		{"full uppercase normalizes", "SHA256:" + strings.ToUpper(full), full, false},
 		{"12-char prefix (minimum)", "sha256:" + full[:12], full[:12], true},
+		{"13-char odd-length prefix (valid hex)", "sha256:" + full[:13], full[:13], true},
 		{"64-char is full, not prefix", "sha256:" + full, full, false},
 	}
 	for _, tc := range tests {
@@ -70,6 +71,24 @@ func TestParseUnknownAlgorithmListsSupported(t *testing.T) {
 	_, err := Parse("md5:deadbeef")
 	if err == nil || !strings.Contains(err.Error(), "sha256") {
 		t.Fatalf("error = %v, want it to list supported algorithms", err)
+	}
+}
+
+// TestParseOddLengthNonHexReportsNonHex asserts that an odd-length string
+// whose trailing character is non-hex is diagnosed as "non-hex characters"
+// rather than "odd length hex string" — the padOdd path exists precisely to
+// produce the correct diagnostic. A regression in padOdd (returning the
+// unpadded string) would flip this to the misleading odd-length error.
+func TestParseOddLengthNonHexReportsNonHex(t *testing.T) {
+	_, err := Parse("sha256:" + strings.Repeat("z", 13))
+	if err == nil {
+		t.Fatal("expected error for odd-length non-hex input, got nil")
+	}
+	if strings.Contains(err.Error(), "odd length") {
+		t.Fatalf("error = %v, want 'non-hex characters' not an 'odd length' diagnostic", err)
+	}
+	if !strings.Contains(err.Error(), "non-hex") {
+		t.Fatalf("error = %v, want it to mention 'non-hex characters'", err)
 	}
 }
 
