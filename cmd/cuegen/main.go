@@ -26,6 +26,7 @@ import (
 	"syscall"
 
 	"cuelang.org/go/cue/ast"
+	"cuelang.org/go/cue/literal"
 	"cuelang.org/go/cue/parser"
 	"cuelang.org/go/cue/token"
 
@@ -390,7 +391,11 @@ func stringLit(expr ast.Expr) (string, bool) {
 	if !ok || lit.Kind != token.STRING {
 		return "", false
 	}
-	unquoted, err := strconv.Unquote(lit.Value)
+	// literal.Unquote understands all CUE string-literal forms, including
+	// triple-quoted (multi-line) strings that strconv.Unquote rejects with
+	// "invalid syntax", which previously caused a misleading "must be a
+	// string literal" error for a valid apiVersion.
+	unquoted, err := literal.Unquote(lit.Value)
 	if err != nil {
 		return "", false
 	}
