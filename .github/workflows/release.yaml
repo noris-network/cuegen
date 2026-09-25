@@ -21,9 +21,13 @@ jobs:
         run: echo "VERSION=${GITHUB_REF##*/}" >> "${GITHUB_OUTPUT}"
 
       - name: Install sops
-        run: go install github.com/getsops/sops/v3/cmd/sops@v3.10.2
+        run: |
+          version=$(go list -m -f '{{.Version}}' github.com/getsops/sops/v3)
+          go install "github.com/getsops/sops/v3/cmd/sops@${version}"
 
       - name: Run Tests
+        env:
+          CUEGEN_REQUIRE_SOPS_CLI: "1"
         run: go test ./...
 
       - name: Run Goreleaser

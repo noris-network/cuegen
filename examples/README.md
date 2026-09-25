@@ -33,10 +33,21 @@ Demonstrates:
 - Multi-object rendering as a `---`-separated YAML stream
 - Canonical field ordering (apiVersion, kind, metadata, spec)
 - Document sorting by `.kind` then `.metadata.name`
+- Subdirectory unification: `prod/` and `dev/` each fill a value hole left
+  open by the parent package
+
+The parent package deliberately leaves `ENVIRONMENT` unset, so it has no
+renderable form of its own - a bare `cuegen .` here fails concreteness
+validation on purpose. Render it through an environment directory instead:
 
 ```
-cuegen .
+cuegen ./prod
+cuegen ./dev
 ```
+
+The path argument names a value to unify into the current module, not a
+module to switch into: `./prod` is merged with the package in the current
+directory. The golden files describe `cuegen ./prod`.
 
 ### sops
 
@@ -65,17 +76,24 @@ The key above is a throwaway demo key used only for this example.
 
 ## Verifying
 
-Each example ships golden files for all output formats:
+Each example ships golden files for all output formats. Substitute the
+example's own render argument for `<path>` - `.` for minimal and sops,
+`./prod` for webapp (see above):
 
 ```
-cuegen . | diff expected.yaml -
-cuegen -kyaml . | diff expected.kyaml -
-cuegen -json . | diff expected.json -
+cuegen <path> | diff expected.yaml -
+cuegen -kyaml <path> | diff expected.kyaml -
+cuegen -json <path> | diff expected.json -
 ```
+
+These comparisons run in CI as `TestExamplesMatchGoldenFiles`
+(`cmd/cuegen/examples_golden_test.go`), so a golden file that drifts from
+what the module renders fails the build. Keep that test's table and this
+section in step.
 
 Digest verification:
 
 ```
-cuegen -hash .
-cuegen -cmp-hash <algo:hex> .   # exit 0 on match, 100 on mismatch
+cuegen -hash <path>
+cuegen -cmp-hash <algo:hex> <path>   # exit 0 on match, 100 on mismatch
 ```

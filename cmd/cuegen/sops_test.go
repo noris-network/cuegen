@@ -61,6 +61,14 @@ func sopsEncryptArgs(t *testing.T, plaintext []byte, filenameOverride string, ar
 func requireSopsCLI(t *testing.T) {
 	t.Helper()
 	if _, err := exec.LookPath("sops"); err != nil {
+		// Skipping keeps `go test ./...` usable on a workstation without the
+		// CLI, but in CI a skip is indistinguishable from a pass: a broken
+		// sops install would leave the whole round-trip suite green while
+		// testing nothing. CUEGEN_REQUIRE_SOPS_CLI=1 (set by .github/
+		// workflows/ci.yaml) makes the missing CLI a failure instead.
+		if os.Getenv("CUEGEN_REQUIRE_SOPS_CLI") != "" {
+			t.Fatalf("sops CLI not found in PATH and CUEGEN_REQUIRE_SOPS_CLI is set: %v", err)
+		}
 		t.Skipf("sops CLI not found in PATH: %v", err)
 	}
 }
@@ -451,7 +459,7 @@ func TestSopsFormat(t *testing.T) {
 // TestSopsFilterExampleFiles verifies the example sops files under examples/sops
 // decrypt correctly with the demo age key.
 func TestSopsFilterExampleFiles(t *testing.T) {
-	demoKey := "AGE-SECRET-KEY-14QUHLE5A6UNSKNYXLF5ZA26P3NCFX8P68JQ066T7VJ6JW5G8FHWQN4HAUQ"
+	demoKey := demoAgeKey
 
 	files := []struct {
 		name   string

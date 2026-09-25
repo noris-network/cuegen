@@ -1,0 +1,67 @@
+name: ci
+
+# The release workflow only runs on tag pushes, so until this existed nothing
+# tested a branch, a pull request, or the weekly dependabot bumps - a broken
+# dependency was only discovered while cutting a release.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          check-latest: true
+
+      # The sops CLI encrypts the fixtures for the round-trip tests in
+      # cmd/cuegen/sops_test.go. Those tests skip when it is absent, which
+      # would leave the suite green while silently testing nothing - hence
+      # CUEGEN_REQUIRE_SOPS_CLI below, which turns the skip into a failure.
+      # The version is read from go.mod so the CLI and the linked library can
+      # never drift apart.
+      - name: Install sops
+        run: |
+          version=$(go list -m -f '{{.Version}}' github.com/getsops/sops/v3)
+          echo "installing sops ${version} (from go.mod)"
+          go install "github.com/getsops/sops/v3/cmd/sops@${version}"
+
+      - name: gofmt
+        run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "${unformatted}" ]; then
+            echo "::error::these files need gofmt:"
+            echo "${unformatted}"
+            exit 1
+          fi
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: staticcheck
+        run: |
+          go install honnef.co/go/tools/cmd/staticcheck@2026.2.1
+          staticcheck ./...
+
+      - name: go build
+        run: go build ./...
+
+      # -race catches data races the plain suite cannot; the golden-file and
+      # legacy-fallback tests build and exec the binary as a subprocess, so
+      # this covers the real CLI contract, not just the packages.
+      - name: go test
+        env:
+          CUEGEN_REQUIRE_SOPS_CLI: "1"
+        run: go test -race ./...

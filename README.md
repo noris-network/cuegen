@@ -310,10 +310,15 @@ Runnable v2 modules live under `examples/`:
   the parent package. Demonstrates a multi-object stream, canonical field and
   document ordering, and subdirectory unification with the current directory.
 
-Each example ships golden files for comparison:
+Each example ships golden files for comparison. Use the example's own render
+argument - `.` for minimal and sops, `./prod` for webapp, whose parent package
+leaves a value hole for an environment directory to fill:
 
 ```
-cuegen . | diff expected.yaml -
-cuegen -kyaml . | diff expected.kyaml -
-cuegen -json . | diff expected.json -
+cuegen <path> | diff expected.yaml -
+cuegen -kyaml <path> | diff expected.kyaml -
+cuegen -json <path> | diff expected.json -
 ```
+
+`TestExamplesMatchGoldenFiles` runs these comparisons in CI, so the golden
+files cannot drift from what the modules actually render.
