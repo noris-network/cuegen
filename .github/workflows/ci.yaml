@@ -113,7 +113,7 @@ jobs:
           set -eux
           docker run --rm cuegen-cmp:ci /bin/cuegen version
           docker run --rm cuegen-cmp:ci /bin/yq --version
-          docker run --rm cuegen-cmp:ci test -x /bin/cuegen_v0.16.8
+          docker run --rm cuegen-cmp:ci test -x /bin/cuegen_v0.16.9
           docker run --rm cuegen-cmp:ci test -f /home/argocd/cmp-server/config/plugin.yaml
 
           probe=$(docker run --rm cuegen-cmp:ci /bin/cuegen -is-cuegen-dir)
