@@ -32,7 +32,7 @@ func withEmptyHashMap(t *testing.T) {
 // cases.
 func writeBinary(t *testing.T, content string) string {
 	t.Helper()
-	path := filepath.Join(t.TempDir(), "cuegen_v0.16.8")
+	path := filepath.Join(t.TempDir(), "cuegen_v0.16.9")
 	if err := os.WriteFile(path, []byte(content), 0o755); err != nil {
 		t.Fatal(err)
 	}

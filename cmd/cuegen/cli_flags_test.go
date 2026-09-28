@@ -583,7 +583,7 @@ cuegen: {
 	if want := "legacy called with: .\n"; stdout != want {
 		t.Errorf("stdout = %q, want %q", stdout, want)
 	}
-	if !strings.Contains(stderr, "fallback to cuegen_v0.16.8") {
+	if !strings.Contains(stderr, "fallback to cuegen_v0.16.9") {
 		t.Errorf("stderr should announce the fallback, got %q", stderr)
 	}
 	if strings.Contains(stderr, "read apiVersion") {
@@ -648,7 +648,7 @@ func runWithFakeLegacyEnv(t *testing.T, dir string, extraEnv []string, args ...s
 	t.Helper()
 	binDir := t.TempDir()
 	script := "#!/bin/sh\necho \"legacy called with: $@\"\n"
-	if err := os.WriteFile(filepath.Join(binDir, "cuegen_v0.16.8"), []byte(script), 0o755); err != nil {
+	if err := os.WriteFile(filepath.Join(binDir, "cuegen_v0.16.9"), []byte(script), 0o755); err != nil {
 		t.Fatal(err)
 	}
 
@@ -676,7 +676,7 @@ func TestLegacyFallbackWithoutFlags(t *testing.T) {
 	if want := "legacy called with: .\n"; stdout != want {
 		t.Errorf("stdout = %q, want %q", stdout, want)
 	}
-	if !strings.Contains(stderr, "fallback to cuegen_v0.16.8") {
+	if !strings.Contains(stderr, "fallback to cuegen_v0.16.9") {
 		t.Errorf("stderr should announce the fallback, got %q", stderr)
 	}
 }
@@ -696,7 +696,7 @@ func TestLegacyFallbackForwardsUnknownFlags(t *testing.T) {
 }
 
 // fakeLegacyScriptHash computes the SHA256 of the exact shell-script body that
-// runWithFakeLegacyEnv writes as the fake cuegen_v0.16.8, so an end-to-end
+// runWithFakeLegacyEnv writes as the fake cuegen_v0.16.9, so an end-to-end
 // test can pass CUEGEN_LEGACY_SHA256=sha256:<this> and expect the integrity
 // check to pass.
 func fakeLegacyScriptHash(t *testing.T) string {
@@ -720,7 +720,7 @@ func TestLegacyFallbackSkipsIntegrityCheckWithEnv(t *testing.T) {
 	if !strings.Contains(stderr, "[WARNING]") {
 		t.Errorf("stderr should warn about skipped integrity check, got %q", stderr)
 	}
-	if !strings.Contains(stderr, "fallback to cuegen_v0.16.8") {
+	if !strings.Contains(stderr, "fallback to cuegen_v0.16.9") {
 		t.Errorf("stderr should still announce the fallback, got %q", stderr)
 	}
 }
@@ -740,7 +740,7 @@ func TestLegacyFallbackPassesIntegrityCheckWithMatchingHash(t *testing.T) {
 	if strings.Contains(stderr, "[WARNING]") {
 		t.Errorf("stderr should not warn when the hash matches, got %q", stderr)
 	}
-	if !strings.Contains(stderr, "fallback to cuegen_v0.16.8") {
+	if !strings.Contains(stderr, "fallback to cuegen_v0.16.9") {
 		t.Errorf("stderr should announce the fallback, got %q", stderr)
 	}
 }
@@ -755,7 +755,7 @@ func TestLegacyFallbackFatalsOnHashMismatch(t *testing.T) {
 	wrong := "sha256:" + strings.Repeat("0", 64)
 	binDir := t.TempDir()
 	script := "#!/bin/sh\necho \"legacy called with: $@\"\n"
-	if err := os.WriteFile(filepath.Join(binDir, "cuegen_v0.16.8"), []byte(script), 0o755); err != nil {
+	if err := os.WriteFile(filepath.Join(binDir, "cuegen_v0.16.9"), []byte(script), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	cmd := exec.Command(cuegenBin, ".")

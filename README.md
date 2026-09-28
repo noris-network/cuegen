@@ -24,12 +24,12 @@ field, rather than producing partial or silently empty output.
 ## Legacy modules
 
 Modules whose `cuegen.cue` carries an older or missing `cuegen.apiVersion`
-(e.g. `v1beta1`, `v1alpha4`) are delegated to the `cuegen_v0.16.8` binary,
+(e.g. `v1beta1`, `v1alpha4`) are delegated to the `cuegen_v0.16.9` binary,
 preserving stdin/stdout/stderr and the exit code. If that binary is not on
 `PATH`, cuegen aborts with a pointer to the release page.
 
-Before delegating, cuegen verifies the SHA256 of `cuegen_v0.16.8` against
-known-good hashes drawn from the [v0.16.8 release](https://github.com/noris-network/cuegen/releases/tag/v0.16.8)
+Before delegating, cuegen verifies the SHA256 of `cuegen_v0.16.9` against
+known-good hashes drawn from the [v0.16.9 release](https://github.com/noris-network/cuegen/releases/tag/v0.16.9)
 (`linux/amd64`, `linux/arm64`, `darwin/amd64`, `darwin/arm64`). A mismatch
 aborts with the expected and actual digests and a pointer to reinstall; this
 guards against a corrupted or PATH-shadowed binary. Operators with a self-built
@@ -53,9 +53,9 @@ aims to follow CUE releases closely.
 go install github.com/noris-network/cuegen@latest
 ```
 
-If modules with `apiVersion < v2` need to be rendered, `cuegen_v0.16.8` is
+If modules with `apiVersion < v2` need to be rendered, `cuegen_v0.16.9` is
 additionally required
-([download](https://github.com/noris-network/cuegen/releases/tag/v0.16.8)).
+([download](https://github.com/noris-network/cuegen/releases/tag/v0.16.9)).
 
 ## Usage
 

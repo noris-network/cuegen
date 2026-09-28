@@ -3,7 +3,7 @@
 // exist in the current directory - its absence is a hard error, not a
 // legacy fallback, since a directory without it isn't a cuegen module at
 // all. Modules whose cuegen.cue exists but carries an older or absent
-// cuegen.apiVersion are delegated to the legacy cuegen_v0.16.8 binary via
+// cuegen.apiVersion are delegated to the legacy cuegen_v0.16.9 binary via
 // execve; an apiVersion that is present but malformed (non-string or empty)
 // is a hard error instead.
 //
@@ -36,11 +36,11 @@ import (
 
 const (
 	cuegenCue    = "cuegen.cue"
-	legacyBinary = "cuegen_v0.16.8"
+	legacyBinary = "cuegen_v0.16.9"
 	// legacyReleaseURL points to the release page hosting the legacy binary.
 	// Surfaced in the error message when the binary is missing from PATH so the
 	// operator knows where to fetch it.
-	legacyReleaseURL = "https://github.com/noris-network/cuegen/releases/tag/v0.16.8"
+	legacyReleaseURL = "https://github.com/noris-network/cuegen/releases/tag/v0.16.9"
 )
 
 // build is set via -ldflags at release time (goreleaser/Dockerfile). Defaults
@@ -486,6 +486,6 @@ Well-known arguments (replace the path, take no flags):
   version               print version and exit (alias: -version)
 
 -kyaml/-json and -hash/-cmp-hash are mutually exclusive. All flags except
--is-cuegen-dir require a v2 module; older modules fall back to cuegen_v0.16.8.
+-is-cuegen-dir require a v2 module; older modules fall back to cuegen_v0.16.9.
 `)
 }

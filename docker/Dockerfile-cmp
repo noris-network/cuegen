@@ -1,16 +1,16 @@
 # CMP image for ArgoCD. Neither binary is built here: both are pulled from
 # their respective GitHub Release archives so there is exactly one canonical
-# build per binary (goreleaser for the current version, the frozen v0.16.8
+# build per binary (goreleaser for the current version, the frozen v0.16.9
 # archive for the legacy fallback). Building from source in this image used
 # to produce a legacy binary whose bytes differed from the Release archive,
 # which defeated hash-based integrity verification.
 
-# Legacy binary: pulled once from the frozen v0.16.8 Release archive.
+# Legacy binary: pulled once from the frozen v0.16.9 Release archive.
 FROM docker.io/library/golang:1.27.1 AS legacyfetch
-ARG LEGACY_ARCHIVE_SHA=2d30764bc3c64f28ddc28a59a3c8d2bfca7d7ef353e947439c07f65462239910
-RUN curl -sfL https://github.com/noris-network/cuegen/releases/download/v0.16.8/cuegen_0.16.8_linux_amd64.tar.gz -o /tmp/legacy.tgz \
+ARG LEGACY_ARCHIVE_SHA=101d31cb641599f096636b9c7b2597c348a0dbd09d53de98fb4aa0e5aaf02bb0
+RUN curl -sfL https://github.com/noris-network/cuegen/releases/download/v0.16.9/cuegen_0.16.9_linux_amd64.tar.gz -o /tmp/legacy.tgz \
  && echo "${LEGACY_ARCHIVE_SHA}  /tmp/legacy.tgz" | sha256sum -c - \
- && tar xzf /tmp/legacy.tgz -C /tmp && mv /tmp/cuegen /tmp/cuegen_v0.16.8
+ && tar xzf /tmp/legacy.tgz -C /tmp && mv /tmp/cuegen /tmp/cuegen_v0.16.9
 
 # Current binary: pulled from the Release archive goreleaser just published.
 # Verified against the checksums.txt goreleaser publishes beside it, so this
@@ -28,7 +28,7 @@ RUN set -eu; \
     tar xzf "${archive}" -C /tmp
 
 FROM docker.io/library/debian:13-slim
-COPY --from=legacyfetch /tmp/cuegen_v0.16.8 /bin/cuegen_v0.16.8
+COPY --from=legacyfetch /tmp/cuegen_v0.16.9 /bin/cuegen_v0.16.9
 COPY --from=curfetch    /tmp/cuegen         /bin/cuegen
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
