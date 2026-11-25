@@ -5,6 +5,12 @@ on:
     tags:
       - "v*"
 
+# contents: write lets goreleaser create the GitHub Release; packages: write
+# lets GITHUB_TOKEN push the CMP image to ghcr.io.
+permissions:
+  contents: write
+  packages: write
+
 jobs:
   release:
     runs-on: ubuntu-latest
@@ -39,19 +45,35 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ steps.get_version.outputs.VERSION }}
 
+      # Transition period: the CMP image is pushed to both Docker Hub (the
+      # established registry) and GHCR (the future home). Once every consumer
+      # pulls from GHCR, drop the Docker Hub login/build/push steps.
       - name: Login to Docker Hub
         uses: docker/login-action@v4
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      - name: Login to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Build and push
         env:
           VERSION: ${{ steps.get_version.outputs.VERSION }}
         run: |
-          IMAGE=docker.io/${{ secrets.DOCKERHUB_USERNAME }}/${{ secrets.DOCKERHUB_REPOSITORY }}
+          DH_IMAGE=docker.io/${{ secrets.DOCKERHUB_USERNAME }}/${{ secrets.DOCKERHUB_REPOSITORY }}
+          GH_IMAGE=ghcr.io/${{ github.repository_owner }}/cuegen-cmp
           echo version=$VERSION
           cat docker/Dockerfile-cmp
-          docker build . -t $IMAGE:$VERSION -t $IMAGE:latest -f docker/Dockerfile-cmp --build-arg VERSION=$VERSION
-          docker push $IMAGE:$VERSION
-          docker push $IMAGE:latest
+          docker build . \
+            -t $DH_IMAGE:$VERSION -t $DH_IMAGE:latest \
+            -t $GH_IMAGE:$VERSION -t $GH_IMAGE:latest \
+            -f docker/Dockerfile-cmp --build-arg VERSION=$VERSION
+          docker push $DH_IMAGE:$VERSION
+          docker push $DH_IMAGE:latest
+          docker push $GH_IMAGE:$VERSION
+          docker push $GH_IMAGE:latest
