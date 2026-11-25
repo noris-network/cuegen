@@ -299,7 +299,12 @@ export: objects: {
 				}
 				msg := err.Error()
 				for _, want := range []string{
-					"key value of dynamic field must be concrete",
+					// CUE's wording for an unresolvable dynamic key changed in
+					// v0.18.0 from "key value of dynamic field must be
+					// concrete" to "invalid dynamic field key". Both versions
+					// fail loudly with a source position - the behavior this
+					// test pins.
+					"invalid dynamic field key",
 					"export.cue:", // source position
 				} {
 					if !strings.Contains(msg, want) {

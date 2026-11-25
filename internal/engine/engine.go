@@ -196,8 +196,8 @@ func Exec(path string, out io.Writer, opts Options) error {
 	// never sees it and the object would vanish from the output silently -
 	// no error, exit 0. Validating the full struct with Concrete(true)
 	// forces every dynamic key to resolve, surfacing the same diagnostic
-	// `cue export -e export.objects` produces ("key value of dynamic field
-	// must be concrete"). Since requireConcrete already cleared every
+	// `cue export -e export.objects` produces ("invalid dynamic field key"
+	// as of CUE v0.18). Since requireConcrete already cleared every
 	// materialized object, any error here is a dropped object (incomplete
 	// dynamic key) - turning a silent drop into a loud, located failure.
 	if err := requireComplete(objs); err != nil {
@@ -434,7 +434,7 @@ func cueDetail(err error) string {
 // Such an object is never yielded by Fields(), so flattenObjects drops it
 // silently. Validating the whole struct forces every dynamic key to resolve,
 // surfacing the same diagnostic `cue export -e export.objects` produces
-// ("key value of dynamic field must be concrete"). Called only after
+// ("invalid dynamic field key" as of CUE v0.18). Called only after
 // requireConcrete has cleared every materialized object, so any error here is
 // a dropped object. Mirrors requireConcrete's Details formatting so both
 // failure modes read identically.
