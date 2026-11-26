@@ -61,26 +61,30 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push
+      # buildx, not "docker build && docker push": with the classic builder
+      # every layer uploads to GHCR but the manifest write returns "denied",
+      # even for a freshly created package and with packages: write granted.
+      # The same images pushed through buildx succeed (verified with a probe
+      # workflow), and mcs-backup pushes this way on its v2 branch.
+      - uses: docker/setup-buildx-action@v4
+
+      - name: Image tags
+        id: image
         env:
           VERSION: ${{ steps.get_version.outputs.VERSION }}
         run: |
-          DH_IMAGE=docker.io/${{ secrets.DOCKERHUB_USERNAME }}/${{ secrets.DOCKERHUB_REPOSITORY }}
-          # Same scheme as mcs-backup: the GHCR package mirrors the repository
-          # name. A pre-existing package under a different name (cuegen-cmp)
-          # was not connected to this repo, so GITHUB_TOKEN could not write its
-          # manifest ("denied") and it could not be deleted (server error 500).
-          # Using the repository name creates a fresh package that GitHub links
-          # to this repo, a link the org.opencontainers.image.source label in
-          # docker/Dockerfile-cmp reinforces. GHCR accepts lower-case only.
-          GH_IMAGE=ghcr.io/${GITHUB_REPOSITORY,,}
-          echo version=$VERSION
-          cat docker/Dockerfile-cmp
-          docker build . \
-            -t $DH_IMAGE:$VERSION -t $DH_IMAGE:latest \
-            -t $GH_IMAGE:$VERSION -t $GH_IMAGE:latest \
-            -f docker/Dockerfile-cmp --build-arg VERSION=$VERSION
-          docker push $DH_IMAGE:$VERSION
-          docker push $DH_IMAGE:latest
-          docker push $GH_IMAGE:$VERSION
-          docker push $GH_IMAGE:latest
+          hub=docker.io/${{ secrets.DOCKERHUB_USERNAME }}/${{ secrets.DOCKERHUB_REPOSITORY }}
+          # GHCR image mirrors the repository name, as mcs-backup does; GHCR
+          # accepts lower-case only.
+          ghcr=ghcr.io/${GITHUB_REPOSITORY,,}
+          echo "tags=${hub}:${VERSION},${hub}:latest,${ghcr}:${VERSION},${ghcr}:latest" >> "${GITHUB_OUTPUT}"
+
+      - name: Build and push
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: docker/Dockerfile-cmp
+          platforms: linux/amd64
+          build-args: VERSION=${{ steps.get_version.outputs.VERSION }}
+          tags: ${{ steps.image.outputs.tags }}
+          push: true
