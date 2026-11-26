@@ -28,6 +28,11 @@ RUN set -eu; \
     tar xzf "${archive}" -C /tmp
 
 FROM docker.io/library/debian:13-slim
+# OCI source annotation: tells GHCR which repository this image belongs to, so
+# the release workflow's GITHUB_TOKEN gets write access to the package (even
+# one that already exists under a name that differs from the repository, such
+# as cuegen-cmp). Also shows up as the source link on the package page.
+LABEL org.opencontainers.image.source="https://github.com/noris-network/cuegen"
 COPY --from=legacyfetch /tmp/cuegen_v0.16.9 /bin/cuegen_v0.16.9
 COPY --from=curfetch    /tmp/cuegen         /bin/cuegen
 ENV DEBIAN_FRONTEND=noninteractive
