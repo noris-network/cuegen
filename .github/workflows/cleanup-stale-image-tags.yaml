@@ -1,0 +1,55 @@
+name: cleanup-stale-image-tags
+
+# One-off: removes image tags left behind by the deleted v1.1.2 / v1.1.3
+# releases. Delete this workflow (and its branch) afterwards.
+
+on:
+  push:
+    branches:
+      - "cleanup/**"
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete GHCR package versions tagged v1.1.2 / v1.1.3
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          set -euo pipefail
+          pkg="cuegen"
+          for tag in v1.1.2 v1.1.3; do
+            ids=$(gh api --paginate "/orgs/${OWNER}/packages/container/${pkg}/versions" \
+                     --jq ".[] | select((.metadata.container.tags // []) | index(\"${tag}\")) | .id")
+            if [ -z "${ids}" ]; then
+              echo "GHCR: no version tagged ${tag}"
+              continue
+            fi
+            for id in ${ids}; do
+              echo "GHCR: deleting version ${id} (${tag})"
+              gh api -X DELETE "/orgs/${OWNER}/packages/container/${pkg}/versions/${id}"
+            done
+          done
+
+      - name: Delete Docker Hub tags v1.1.2 / v1.1.3
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+          DOCKERHUB_REPOSITORY: ${{ secrets.DOCKERHUB_REPOSITORY }}
+        run: |
+          set -euo pipefail
+          for tag in v1.1.2 v1.1.3; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' -X DELETE \
+                     -u "${DOCKERHUB_USERNAME}:${DOCKERHUB_TOKEN}" \
+                     "https://hub.docker.com/v2/repositories/${DOCKERHUB_USERNAME}/${DOCKERHUB_REPOSITORY}/tags/${tag}/")
+            echo "Docker Hub ${tag}: HTTP ${code}"
+            case "${code}" in
+              200|202|204|404) ;;
+              *) echo "unexpected status ${code}" >&2; exit 1 ;;
+            esac
+          done
