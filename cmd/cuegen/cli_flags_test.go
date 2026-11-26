@@ -13,6 +13,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	sigsyaml "sigs.k8s.io/yaml"
 )
 
 // buildCuegen compiles the cuegen binary into a temp file and returns its
@@ -315,6 +317,7 @@ func TestHashStabilityAcrossPatchReleases(t *testing.T) {
 		{"yaml", []string{"-hash", "."}, "sha256:5a83a6c36a52dec6fce78bbddbac70a0923f50f6661f28869fb154b421bea0c9"},
 		{"kyaml", []string{"-hash", "-kyaml", "."}, "sha256:56fd5042297bef218668f9380556d102e7deac9508b4ccbcee9186b9a737fb0b"},
 		{"json", []string{"-hash", "-json", "."}, "sha256:a26385333957d07a921dfbbef3c579d2a06f463fa6784669cbab7e774c3adfc3"},
+		{"list", []string{"-hash", "-list", "."}, "sha256:bcd188493a31fc3d2673c29b59e98b7c15dabc4bebf4a593674fb03fda2c4b90"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -620,6 +623,7 @@ func TestLegacyFallbackRejectsV2Flags(t *testing.T) {
 		{"cmp-hash", legacyDir, []string{"-cmp-hash", wrongHash, "."}},
 		{"json", legacyDir, []string{"-json", "."}},
 		{"kyaml", legacyDir, []string{"-kyaml", "."}},
+		{"list", legacyDir, []string{"-list", "."}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			stdout, stderr, exit := runCuegen(t, tc.dir, tc.args...)
@@ -1000,6 +1004,116 @@ func TestWideEnvVarInvalid(t *testing.T) {
 		if !strings.Contains(stderr, "CUEGEN_WIDE") || !strings.Contains(stderr, "not a valid boolean") {
 			t.Errorf("CUEGEN_WIDE=%q: stderr should diagnose invalid boolean, got %q", val, stderr)
 		}
+	}
+}
+
+// k8sList is the shape -list renders, decoded from any of its encodings.
+type k8sList struct {
+	APIVersion string `json:"apiVersion"`
+	Kind       string `json:"kind"`
+	Items      []struct {
+		Kind     string `json:"kind"`
+		Metadata struct {
+			Name string `json:"name"`
+		} `json:"metadata"`
+	} `json:"items"`
+}
+
+// TestListFlag verifies -list wraps every object into a single
+// "apiVersion: v1, kind: List" document in all three encodings, keeping the
+// canonical kind/name order of the plain stream. -json -list must emit a real
+// List rather than the "<kind>/<name>"-keyed debug object.
+func TestListFlag(t *testing.T) {
+	dir := t.TempDir()
+	writeTestModule(t, dir)
+
+	for _, tc := range []struct {
+		name string
+		args []string
+	}{
+		{"yaml", []string{"-list", "."}},
+		{"kyaml", []string{"-list", "-kyaml", "."}},
+		{"json", []string{"-json", "-list", "."}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			stdout, stderr, exit := runCuegen(t, dir, tc.args...)
+			if exit != 0 {
+				t.Fatalf("exit %d, stderr: %s", exit, stderr)
+			}
+			if stderr != "" {
+				t.Errorf("stderr should be empty, got %q", stderr)
+			}
+			// KYAML opens every stream with "---"; beyond that, a second
+			// document separator means the objects were not wrapped.
+			if strings.Contains(strings.TrimPrefix(stdout, "---\n"), "\n---") {
+				t.Fatalf("output should be a single document:\n%s", stdout)
+			}
+			// sigs.k8s.io/yaml reads YAML, KYAML and JSON alike.
+			var list k8sList
+			if err := sigsyaml.Unmarshal([]byte(stdout), &list); err != nil {
+				t.Fatalf("decode list: %v\n%s", err, stdout)
+			}
+			if list.APIVersion != "v1" || list.Kind != "List" {
+				t.Errorf("got apiVersion %q, kind %q; want v1, List", list.APIVersion, list.Kind)
+			}
+			var got []string
+			for _, it := range list.Items {
+				got = append(got, it.Kind+"/"+it.Metadata.Name)
+			}
+			if want := []string{"ConfigMap/cm-a", "Deployment/dep-a"}; !slices.Equal(got, want) {
+				t.Errorf("items = %v, want %v", got, want)
+			}
+		})
+	}
+
+	// Block YAML: the List header comes first, in canonical field order.
+	stdout, _, _ := runCuegen(t, dir, "-list", ".")
+	if want := "apiVersion: v1\nkind: List\nitems:\n"; !strings.HasPrefix(stdout, want) {
+		t.Errorf("yaml list should start with %q, got:\n%s", want, stdout)
+	}
+}
+
+// TestListWide verifies -wide still applies under -list: the items sequence
+// is indented under its "items:" key, while the default keeps it flush left.
+func TestListWide(t *testing.T) {
+	dir := t.TempDir()
+	writeModuleWithList(t, dir)
+
+	compact, _, ce := runCuegen(t, dir, "-list", ".")
+	if ce != 0 {
+		t.Fatalf("-list render exit %d", ce)
+	}
+	wide, _, we := runCuegen(t, dir, "-list", "-wide", ".")
+	if we != 0 {
+		t.Fatalf("-list -wide render exit %d", we)
+	}
+	if !strings.Contains(compact, "\nitems:\n- apiVersion:") {
+		t.Errorf("compact list should have flush-left items:\n%s", compact)
+	}
+	if !strings.Contains(wide, "\nitems:\n  - apiVersion:") {
+		t.Errorf("wide list should have indented items:\n%s", wide)
+	}
+}
+
+// TestListHash verifies -hash digests the -list output, not the plain stream.
+func TestListHash(t *testing.T) {
+	dir := t.TempDir()
+	writeTestModule(t, dir)
+
+	listOut, _, le := runCuegen(t, dir, "-list", ".")
+	if le != 0 {
+		t.Fatalf("-list render exit %d", le)
+	}
+	hashOut, stderr, he := runCuegen(t, dir, "-list", "-hash", ".")
+	if he != 0 {
+		t.Fatalf("-list -hash exit %d, stderr: %s", he, stderr)
+	}
+	if want := hashOf(listOut) + "\n"; hashOut != want {
+		t.Errorf("-list -hash = %q, want %q", hashOut, want)
+	}
+	plainOut, _, _ := runCuegen(t, dir, ".")
+	if hashOf(plainOut) == hashOf(listOut) {
+		t.Errorf("-list output should differ from the plain stream")
 	}
 }
 

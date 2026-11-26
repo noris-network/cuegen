@@ -80,6 +80,9 @@ cuegen -wide .
 # or via env var (e.g. for ArgoCD CMP where CLI flags aren't easily passed):
 CUEGEN_WIDE=true cuegen .
 
+# wrap all objects in a single Kubernetes "kind: List" document:
+cuegen -list .
+
 # print only the digest of the output, as "sha256:<hex>" (no YAML):
 cuegen -hash .
 
@@ -96,6 +99,7 @@ cuegen -cmp-hash <algo:hex> .
 | `-kyaml`                             | Renders as KYAML (flow-style) instead of block YAML                                                                                                                                                       |
 | `-json`                              | Renders as a JSON object keyed by `<kind>/<name>` (deliberately without namespace). Suitable for `fx`/`yq`/`jq`                                                                                                |
 | `-wide`                              | Indents sequence items under their parent key (yq-style) instead of flush-left. YAML output only                                                                                                          |
+| `-list`                              | Wraps all objects in a single `apiVersion: v1` / `kind: List` document instead of a stream. Combines with `-kyaml`, `-json` and `-wide` |
 | `-hash`                              | Prints only the digest of the output, as `sha256:<hex>` (with newline)                                                                                                                                    |
 | `-cmp-hash <algo:hex>`               | Compares the output digest against `<algo:hex>` (or an `algo:<12+ hex chars>` prefix), case-insensitive. Exit 0 on match, exit 100 on mismatch (expected/actual digest on stderr), exit 1 on a malformed digest. No stdout output |
 | `-is-cuegen-dir`                     | ArgoCD CMP detection: prints `true` if `cuegen.cue` exists, nothing otherwise. Exit 0                                                                                                                     |
@@ -107,10 +111,10 @@ Flags can be placed before or after the path and combined (e.g.
 
 On a v2 module, unknown flags (`--json`, typos like `-hsah`) and more than one
 positional argument are errors (exit 1). The formatting and digest flags
-(`-kyaml`, `-json`, `-hash`, `-cmp-hash`) are v2-only: if the module falls back
-to the legacy binary, cuegen aborts rather than silently dropping them. On the
-legacy fallback all unrecognized arguments are instead forwarded to the legacy
-binary unchanged.
+(`-kyaml`, `-json`, `-wide`, `-list`, `-hash`, `-cmp-hash`) are v2-only: if the
+module falls back to the legacy binary, cuegen aborts rather than silently
+dropping them. On the legacy fallback all unrecognized arguments are instead
+forwarded to the legacy binary unchanged.
 
 ## Quick start
 
@@ -206,6 +210,15 @@ sharing kind and name (even in different namespaces) are therefore a
 duplicate-key error, even though the same module renders fine as YAML/KYAML.
 `-json` is a debugging aid for piping into `fx`/`yq`/`jq`, not a format every
 module is expected to support.
+
+`-list` wraps the whole stream into a single Kubernetes List document
+(`apiVersion: v1`, `kind: List`, `items: [...]`), for tools that expect one
+document instead of a stream. The items keep the canonical formatting and
+order described above. `-list` changes only the structure, so it combines with
+every encoding: `-kyaml -list` emits the List in flow style, and `-json -list`
+emits a real List as JSON (keys alphabetical, like `kubectl get -o json`)
+instead of the `<kind>/<name>`-keyed debug object - so the duplicate-key
+restriction above does not apply.
 
 ## Validation and error reporting
 

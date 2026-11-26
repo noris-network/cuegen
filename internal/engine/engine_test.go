@@ -496,6 +496,59 @@ export: objects: configMap: {
 	}
 }
 
+// TestExecListJSONShape verifies Options.List with FormatJSON emits a real
+// Kubernetes List - not the "<kind>/<name>"-keyed debug object - indented two
+// spaces like -json. Two objects sharing kind and name in different
+// namespaces, which TestExecJSONDuplicateKindName shows -json rejects, must
+// render fine here: a List has no key scheme to collide on.
+func TestExecListJSONShape(t *testing.T) {
+	dir := t.TempDir()
+	writeModule(t, dir, "")
+	writeFile(t, dir, "export.cue", `package control
+
+export: objects: configMap: {
+	"a": {
+		apiVersion: "v1"
+		kind:       "ConfigMap"
+		metadata: {name: "cm", namespace: "ns-one"}
+		data: x: "1"
+	}
+	"b": {
+		apiVersion: "v1"
+		kind:       "ConfigMap"
+		metadata: {name: "cm", namespace: "ns-two"}
+		data: x: "2"
+	}
+}
+`)
+
+	t.Chdir(dir)
+	var out bytes.Buffer
+	if err := Exec(".", &out, Options{Format: FormatJSON, List: true}); err != nil {
+		t.Fatalf("Exec: %v", err)
+	}
+
+	var list struct {
+		APIVersion string           `json:"apiVersion"`
+		Kind       string           `json:"kind"`
+		Items      []map[string]any `json:"items"`
+	}
+	if err := json.Unmarshal(out.Bytes(), &list); err != nil {
+		t.Fatalf("invalid JSON: %v\n%s", err, out.String())
+	}
+	if list.APIVersion != "v1" || list.Kind != "List" || len(list.Items) != 2 {
+		t.Fatalf("want a v1 List with 2 items, got apiVersion %q, kind %q, %d items",
+			list.APIVersion, list.Kind, len(list.Items))
+	}
+	lines := strings.Split(out.String(), "\n")
+	if !slices.Contains(lines, `  "items": [`) {
+		t.Errorf("missing two-space-indented items line\n%s", out.String())
+	}
+	if !strings.HasSuffix(out.String(), "}\n") {
+		t.Errorf("output should end with a closing brace and newline\n%s", out.String())
+	}
+}
+
 // TestOverlayCoversModuleRoot pins the fix for a security-relevant bug: the
 // overlay walk must cover the entire module tree (rooted at cue.mod), not
 // just the render path argument. CUE unifies ancestor packages up to the

@@ -3,7 +3,8 @@
 // Exec loads a CUE module from the current working directory, resolves
 // the configured export path, validates all exported objects for
 // concreteness, and serializes the result as a "---"-separated YAML
-// stream (or JSON/KYAML). A FileFilter hook allows transparent
+// stream (or JSON/KYAML) - or, with Options.List, as a single Kubernetes
+// "kind: List" document wrapping every object. A FileFilter hook allows transparent
 // pre-processing of file contents before the CUE loader sees them,
 // enabling features like SOPS decryption without coupling the engine
 // to a specific encryption tool.
@@ -84,6 +85,14 @@ type Options struct {
 	// mikefarah/yq.
 	WideSeqIndent bool
 
+	// List wraps every rendered object into a single Kubernetes
+	// "apiVersion: v1, kind: List" document under items, instead of
+	// emitting one document per object. It determines the structure only,
+	// so it combines with every Format: YAML/KYAML emit one List document,
+	// JSON emits the List as an indented JSON object (replacing the
+	// "<kind>/<name>"-keyed debug object). WideSeqIndent still applies.
+	List bool
+
 	// FileFilter transforms the raw bytes of every file below the module
 	// root before the CUE loader sees them. nil means identity. Plug in
 	// transparent decryption (SOPS, age, etc.) here so CUE never knows a
@@ -109,7 +118,8 @@ type Options struct {
 // outside the enclosing module's tree, is not supported - matching plain
 // `cue` CLI behavior. Every object under the configured export path is
 // serialized as its own document and the documents are emitted as a single
-// stream in the configured format.
+// stream in the configured format - or, with Options.List, wrapped into one
+// "kind: List" document.
 //
 // cuegen performs no $val scope plumbing, import composition or generator
 // expansion - v2 modules express all of that in CUE itself. cuegen only
@@ -236,6 +246,19 @@ func Exec(path string, out io.Writer, opts Options) error {
 		}
 	}
 
+	// -list changes the structure, not the encoding: the already formatted
+	// and sorted objects become the items of one List document. The writers
+	// below then see a single node, so YAML/KYAML emit no "---" separator.
+	// JSON needs its own writer, since writeJSON's "<kind>/<name>" key
+	// scheme would key the whole List as "List/".
+	if opts.List {
+		list := wrapList(nodes)
+		if opts.Format == FormatJSON {
+			return writeJSONList(list, out)
+		}
+		nodes = []*yaml.RNode{list}
+	}
+
 	switch opts.Format {
 	case FormatKYAML:
 		return writeKyaml(nodes, out)
@@ -257,7 +280,8 @@ func Exec(path string, out io.Writer, opts Options) error {
 // fx/jq) rather than a format every module is expected to support.
 // Insertion order from the filter pipeline is preserved - the output is
 // built manually rather than via a map, so json.MarshalIndent's alphabetical
-// key sort cannot silently override the pipeline's sort order.
+// key sort cannot silently override the pipeline's sort order. Not used with
+// Options.List, which emits a real "kind: List" via writeJSONList instead.
 func writeJSON(nodes []*yaml.RNode, out io.Writer) error {
 	seen := make(map[string]bool, len(nodes))
 	var buf bytes.Buffer
@@ -300,6 +324,54 @@ func writeJSON(nodes []*yaml.RNode, out io.Writer) error {
 	}
 	buf.WriteString("}\n")
 	_, err := out.Write(buf.Bytes())
+	return err
+}
+
+// wrapList wraps the filtered nodes into a single Kubernetes List:
+//
+//	apiVersion: v1
+//	kind: List
+//	items: [<node>, ...]
+//
+// The keys are built in kyaml's canonical field order (apiVersion, kind,
+// then the rest), and items is a block-style sequence - parsing a literal
+// "items: []" would mark it flow-style and render the whole list inline.
+// The items are the nodes' mapping content (without their document wrapper),
+// already formatted and sorted, so no filter runs on the List again.
+// metadata is omitted: kubectl does not require it for a List.
+func wrapList(nodes []*yaml.RNode) *yaml.RNode {
+	items := &yaml.Node{Kind: yaml.SequenceNode, Tag: yaml.NodeTagSeq}
+	for _, n := range nodes {
+		items.Content = append(items.Content, n.YNode())
+	}
+	scalar := func(v string) *yaml.Node {
+		return &yaml.Node{Kind: yaml.ScalarNode, Tag: yaml.NodeTagString, Value: v}
+	}
+	return yaml.NewRNode(&yaml.Node{
+		Kind: yaml.MappingNode,
+		Tag:  yaml.NodeTagMap,
+		Content: []*yaml.Node{
+			scalar("apiVersion"), scalar("v1"),
+			scalar("kind"), scalar("List"),
+			scalar("items"), items,
+		},
+	})
+}
+
+// writeJSONList marshals a List built by wrapList as a single indented JSON
+// object. Keys come out alphabetically (RNode.MarshalJSON goes through a
+// map), matching `kubectl get -o json` and deterministic across renders.
+func writeJSONList(list *yaml.RNode, out io.Writer) error {
+	jb, err := list.MarshalJSON()
+	if err != nil {
+		return fmt.Errorf("marshal json list: %w", err)
+	}
+	var buf bytes.Buffer
+	if err := json.Indent(&buf, jb, "", "  "); err != nil {
+		return fmt.Errorf("indent json list: %w", err)
+	}
+	buf.WriteByte('\n')
+	_, err = out.Write(buf.Bytes())
 	return err
 }
 

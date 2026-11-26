@@ -1,5 +1,6 @@
 // Command cuegen renders a cuegen module (cuegen.apiVersion v2) into a
-// "---"-separated YAML stream, behaving like `cue cmd exp`. cuegen.cue must
+// "---"-separated YAML stream, behaving like `cue cmd exp` (or, with -list,
+// into a single Kubernetes "kind: List" document). cuegen.cue must
 // exist in the current directory - its absence is a hard error, not a
 // legacy fallback, since a directory without it isn't a cuegen module at
 // all. Modules whose cuegen.cue exists but carries an older or absent
@@ -75,6 +76,7 @@ func main() {
 	useKYAML := false
 	useJSON := false
 	useWide := false
+	useList := false
 	hashOnly := false
 	cmpHash := ""
 	cmpHashSet := false
@@ -92,6 +94,8 @@ func main() {
 			useJSON = true
 		case "-wide":
 			useWide = true
+		case "-list":
+			useList = true
 		case "-hash":
 			hashOnly = true
 		case "-cmp-hash":
@@ -206,7 +210,7 @@ func main() {
 	case useJSON:
 		format = engine.FormatJSON
 	}
-	opts := engine.Options{Format: format, WideSeqIndent: useWide, FileFilter: sopsFilter}
+	opts := engine.Options{Format: format, WideSeqIndent: useWide, List: useList, FileFilter: sopsFilter}
 
 	if hashOnly || cmpHashSet {
 		var buf bytes.Buffer
@@ -476,6 +480,8 @@ Flags:
                         mainly for debugging the generated manifest (e.g. with fx)
   -wide                 indent list items under their parent key (yq-style)
                         (also enabled by CUEGEN_WIDE=true)
+  -list                 wrap all objects in a single "kind: List" document
+                        (combines with -kyaml, -json and -wide)
   -hash                 print only the output digest, as "sha256:<hex>"
   -cmp-hash <algo:hex>  compare output digest to <algo:hex> (or an
                         algo:<12+ hex chars> prefix); exit 0 match, 100
